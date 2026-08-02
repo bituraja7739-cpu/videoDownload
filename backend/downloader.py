@@ -29,6 +29,9 @@ import yt_dlp
 TEMP_DIR = Path(tempfile.gettempdir()) / "vidsnap_downloads"
 TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
+# Default cookies file path for cloud deployment (Render/AWS)
+COOKIES_PATH = Path(__file__).parent.parent / "cookies.txt"
+
 # In-memory job progress store  { job_id: { status, percent, speed, eta, ... } }
 progress_store: Dict[str, dict] = {}
 
@@ -317,6 +320,8 @@ def build_ydl_opts(
     # Cookies
     if cookies_file and os.path.isfile(cookies_file):
         opts["cookiefile"] = cookies_file
+    elif COOKIES_PATH.exists() and COOKIES_PATH.is_file():
+        opts["cookiefile"] = str(COOKIES_PATH)
 
     # Progress hook (for SSE tracking)
     if job_id:
@@ -374,6 +379,8 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
     }
     if cookies_file and os.path.isfile(cookies_file):
         base_opts["cookiefile"] = cookies_file
+    elif COOKIES_PATH.exists() and COOKIES_PATH.is_file():
+        base_opts["cookiefile"] = str(COOKIES_PATH)
 
     with yt_dlp.YoutubeDL(base_opts) as ydl:
         try:
@@ -599,6 +606,8 @@ def _get_direct_urls_sync(
     }
     if cookies_file and os.path.isfile(cookies_file):
         opts["cookiefile"] = cookies_file
+    elif COOKIES_PATH.exists() and COOKIES_PATH.is_file():
+        opts["cookiefile"] = str(COOKIES_PATH)
 
     with yt_dlp.YoutubeDL(opts) as ydl:
         try:
