@@ -282,6 +282,11 @@ def build_ydl_opts(
         "noplaylist": True,
         "http_headers": {"User-Agent": _UA},
         "concurrent_fragment_downloads": 4,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web"],
+            }
+        },
     }
 
     # FFmpeg location
@@ -361,6 +366,11 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
         "noplaylist": True,
         "socket_timeout": 30,
         "http_headers": {"User-Agent": _UA},
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web"],
+            }
+        },
     }
     if cookies_file and os.path.isfile(cookies_file):
         base_opts["cookiefile"] = cookies_file
@@ -581,6 +591,11 @@ def _get_direct_urls_sync(
         "noplaylist":   True,
         "socket_timeout": 30,
         "http_headers": {"User-Agent": _UA},
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web"],
+            }
+        },
     }
     if cookies_file and os.path.isfile(cookies_file):
         opts["cookiefile"] = cookies_file
