@@ -284,7 +284,7 @@ def build_ydl_opts(
         "concurrent_fragment_downloads": 4,
         "extractor_args": {
             "youtube": {
-                "player_client": ["android", "web"],
+                "player_client": ["mweb", "android", "web"],
             }
         },
     }
@@ -368,7 +368,7 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
         "http_headers": {"User-Agent": _UA},
         "extractor_args": {
             "youtube": {
-                "player_client": ["android", "web"],
+                "player_client": ["mweb", "android", "web"],
             }
         },
     }
@@ -593,7 +593,7 @@ def _get_direct_urls_sync(
         "http_headers": {"User-Agent": _UA},
         "extractor_args": {
             "youtube": {
-                "player_client": ["android", "web"],
+                "player_client": ["mweb", "android", "web"],
             }
         },
     }
