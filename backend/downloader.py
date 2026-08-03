@@ -35,6 +35,13 @@ COOKIES_PATH = Path(__file__).parent.parent / "cookies.txt"
 # In-memory job progress store  { job_id: { status, percent, speed, eta, ... } }
 progress_store: Dict[str, dict] = {}
 
+# TLS Impersonation Target (bypasses cloud IP bot detection using curl_cffi)
+try:
+    from yt_dlp.networking.impersonate import ImpersonateTarget
+    IMPERSONATE_TARGET = ImpersonateTarget.from_str("chrome-120:macos-14")
+except Exception:
+    IMPERSONATE_TARGET = None
+
 # Platform detection patterns
 PLATFORM_PATTERNS = {
     "youtube": re.compile(r"(youtube\.com|youtu\.be)", re.IGNORECASE),
@@ -298,6 +305,8 @@ def build_ydl_opts(
             }
         },
     }
+    if IMPERSONATE_TARGET:
+        opts["impersonate"] = IMPERSONATE_TARGET
 
     # FFmpeg location
     ffmpeg_bin = find_ffmpeg()
@@ -388,6 +397,8 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
             }
         },
     }
+    if IMPERSONATE_TARGET:
+        stage1_opts["impersonate"] = IMPERSONATE_TARGET
 
     info = None
     # Stage 1: Cloud Bypass (android_vr / web_embedded)
@@ -629,6 +640,8 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
             }
         },
     }
+    if IMPERSONATE_TARGET:
+        opts_s1["impersonate"] = IMPERSONATE_TARGET
 
     # Stage 2: Mobile Failover
     opts_s2 = {
