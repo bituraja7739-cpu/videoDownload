@@ -383,10 +383,11 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
         "no_warnings": True,
         "noplaylist": True,
         "socket_timeout": 30,
+        "ignoreerrors": True,
         "format": "b/bestvideo+bestaudio/best",
         "extractor_args": {
             "youtube": {
-                "player_client": ["android_vr", "web_embedded", "mweb"],
+                "player_client": ["android_vr", "web_embedded", "mweb", "android"],
             }
         },
     }
@@ -620,10 +621,11 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
         "no_warnings":  True,
         "noplaylist":   True,
         "socket_timeout": 30,
+        "ignoreerrors": True,
         "format": "b/bestvideo+bestaudio/best",
         "extractor_args": {
             "youtube": {
-                "player_client": ["android_vr", "web_embedded", "mweb"],
+                "player_client": ["android_vr", "web_embedded", "mweb", "android"],
             }
         },
     }
