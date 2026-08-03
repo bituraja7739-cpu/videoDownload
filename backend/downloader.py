@@ -204,7 +204,7 @@ def classify_error(exc: Exception) -> dict:
     if any(k in msg for k in ("login", "sign in", "authentication required", "not logged in")):
         return {
             "code": "login_required",
-            "message": "This video is private or age-restricted on the platform. Please try another public video link.",
+            "message": f"This video is private or age-restricted on the platform. [Raw Error: {str(exc)}]",
         }
     if any(k in msg for k in ("429", "rate limit", "too many requests")):
         return {
