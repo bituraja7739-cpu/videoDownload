@@ -270,6 +270,17 @@ def build_ydl_opts(
         job_id:           If provided, attaches a progress hook to update progress_store
         cookies_file:     Optional path to a Netscape cookies.txt file
     """
+    # Determine if cookies are available
+    # IMPORTANT: android_vr client is skipped by yt-dlp when cookies are present.
+    # So we use TWO different strategies:
+    #   - WITH cookies: use 'web' client (supports cookies, works on cloud IPs)
+    #   - WITHOUT cookies: use 'android_vr' (bypasses bot detection, no login needed)
+    _has_cookies = (
+        (cookies_file and os.path.isfile(cookies_file))
+        or (COOKIES_PATH.exists() and COOKIES_PATH.is_file() and COOKIES_PATH.stat().st_size > 200)
+    )
+    _player_clients = ["web", "web_creator"] if _has_cookies else ["android_vr", "web_embedded", "mweb"]
+
     opts: dict = {
         "format": format_selector,
         "outtmpl": output_template,
@@ -284,7 +295,7 @@ def build_ydl_opts(
         "concurrent_fragment_downloads": 4,
         "extractor_args": {
             "youtube": {
-                "player_client": ["android_vr", "web_embedded", "mweb", "android", "web"],
+                "player_client": _player_clients,
             }
         },
     }
@@ -360,8 +371,20 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
     Synchronously extract video metadata with yt-dlp.
     Returns a dict with title, thumbnail, duration, platform, formats list.
     Raises ValueError with a clean message on failure.
+
+    Strategy:
+      - WITH cookies → use 'web' client (supports cookies, auth bypasses cloud IP block)
+      - WITHOUT cookies → use 'android_vr' + 'web_embedded' (bypasses bot detection)
+      android_vr is SKIPPED by yt-dlp when cookiefile is set — so we separate the two.
     """
     url = normalize_url(url)
+
+    # Check if real cookies are available (>200 bytes means real cookies, not empty template)
+    _ck_file = cookies_file if (cookies_file and os.path.isfile(cookies_file)) else (
+        str(COOKIES_PATH) if (COOKIES_PATH.exists() and COOKIES_PATH.stat().st_size > 200) else None
+    )
+    _has_cookies = _ck_file is not None
+
     base_opts = {
         "quiet": True,
         "no_warnings": True,
@@ -370,14 +393,14 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
         "http_headers": {"User-Agent": _UA},
         "extractor_args": {
             "youtube": {
-                "player_client": ["android_vr", "web_embedded", "mweb", "android", "web"],
+                # WITH cookies: web client uses login session to bypass cloud IP block
+                # WITHOUT cookies: android_vr bypasses bot detection (skipped when cookies set)
+                "player_client": ["web", "web_creator"] if _has_cookies else ["android_vr", "web_embedded", "mweb"],
             }
         },
     }
-    if cookies_file and os.path.isfile(cookies_file):
-        base_opts["cookiefile"] = cookies_file
-    elif COOKIES_PATH.exists() and COOKIES_PATH.is_file():
-        base_opts["cookiefile"] = str(COOKIES_PATH)
+    if _ck_file:
+        base_opts["cookiefile"] = _ck_file
 
     with yt_dlp.YoutubeDL(base_opts) as ydl:
         try:
@@ -391,10 +414,16 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
                     err = classify_error(alt_exc)
                     raise ValueError(err["message"]) from alt_exc
             else:
-                # Fallback: Retry YouTube with TV and mweb player client
+                # Fallback: Retry with opposite strategy
                 try:
                     alt_opts = dict(base_opts)
-                    alt_opts["extractor_args"] = {"youtube": {"player_client": ["tv", "mweb", "web"]}}
+                    if _has_cookies:
+                        # Cookies present but web failed — try android_vr without cookies
+                        alt_opts.pop("cookiefile", None)
+                        alt_opts["extractor_args"] = {"youtube": {"player_client": ["android_vr", "web_embedded"]}}
+                    else:
+                        # No cookies — try web client as final fallback
+                        alt_opts["extractor_args"] = {"youtube": {"player_client": ["web", "mweb"]}}
                     with yt_dlp.YoutubeDL(alt_opts) as alt_ydl:
                         info = alt_ydl.extract_info(url, download=False)
                 except Exception as alt_exc:
