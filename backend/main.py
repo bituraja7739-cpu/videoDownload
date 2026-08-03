@@ -40,11 +40,13 @@ async def lifespan(app: FastAPI):
     ffmpeg_ok = check_ffmpeg()
     ytdlp_ver = get_ytdlp_version()
 
+    from .downloader import IMPERSONATE_TARGET
     logger.info("=" * 50)
     logger.info("  VidSnap started")
-    logger.info(f"  yt-dlp version : {ytdlp_ver}")
-    logger.info(f"  FFmpeg found   : {'✓' if ffmpeg_ok else '✗  (MP3/merged downloads may fail)'}")
-    logger.info(f"  Temp dir       : {TEMP_DIR}")
+    logger.info(f"  yt-dlp version  : {ytdlp_ver}")
+    logger.info(f"  FFmpeg found    : {'✓' if ffmpeg_ok else '✗  (MP3/merged downloads may fail)'}")
+    logger.info(f"  TLS Impersonate : {'✓ ' + str(IMPERSONATE_TARGET) if IMPERSONATE_TARGET else '✗  (curl_cffi not loaded)'}")
+    logger.info(f"  Temp dir        : {TEMP_DIR}")
     logger.info("=" * 50)
 
     yield

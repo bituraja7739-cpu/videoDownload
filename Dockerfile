@@ -1,4 +1,4 @@
-# Dockerfile for VidSnap — FastAPI + yt-dlp + FFmpeg
+# Dockerfile for VidSnap — FastAPI + yt-dlp + FFmpeg + curl_cffi
 
 FROM python:3.11-slim
 
@@ -7,12 +7,15 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 
-# Install FFmpeg, Node.js (for YouTube JS challenge solver), and system dependencies
+# Install FFmpeg, Node.js (for YouTube JS challenge solver), build tools for curl_cffi, and system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     nodejs \
     ca-certificates \
     curl \
+    gcc \
+    libffi-dev \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
