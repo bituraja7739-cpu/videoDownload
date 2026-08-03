@@ -204,10 +204,7 @@ def classify_error(exc: Exception) -> dict:
     if any(k in msg for k in ("login", "sign in", "authentication required", "not logged in")):
         return {
             "code": "login_required",
-            "message": (
-                "This content requires you to be logged in. "
-                "Export your browser cookies and provide a cookies.txt file."
-            ),
+            "message": "This video is private or age-restricted on the platform. Please try another public video link.",
         }
     if any(k in msg for k in ("429", "rate limit", "too many requests")):
         return {
@@ -287,7 +284,7 @@ def build_ydl_opts(
         "concurrent_fragment_downloads": 4,
         "extractor_args": {
             "youtube": {
-                "player_client": ["mweb", "android", "web"],
+                "player_client": ["android_vr", "web_embedded", "mweb", "android", "web"],
             }
         },
     }
@@ -373,7 +370,7 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
         "http_headers": {"User-Agent": _UA},
         "extractor_args": {
             "youtube": {
-                "player_client": ["mweb", "android", "web"],
+                "player_client": ["android_vr", "web_embedded", "mweb", "android", "web"],
             }
         },
     }
@@ -600,7 +597,7 @@ def _get_direct_urls_sync(
         "http_headers": {"User-Agent": _UA},
         "extractor_args": {
             "youtube": {
-                "player_client": ["mweb", "android", "web"],
+                "player_client": ["android_vr", "web_embedded", "mweb", "android", "web"],
             }
         },
     }
