@@ -368,8 +368,10 @@ def build_ydl_opts(
 def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
     """
     Synchronously extract video metadata with yt-dlp.
-    Stage 1: Pure Cloud Bypass (NO COOKIES, android_vr/web_embedded) -> 99% success rate on cloud IPs.
-    Stage 2: Cookies Fallback (if Stage 1 fails with age/login restriction).
+    3-Stage Failover Pipeline:
+      Stage 1: android_vr & web_embedded (no cookies) -> bypasses bot detection on cloud IPs
+      Stage 2: mweb & android (no cookies) -> mobile failover
+      Stage 3: web & web_creator (with cookies if available) -> authenticated fallback
     """
     url = normalize_url(url)
 
@@ -377,46 +379,49 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
         str(COOKIES_PATH) if (COOKIES_PATH.exists() and COOKIES_PATH.stat().st_size > 200) else None
     )
 
-    # Stage 1: Cloud Bypass without cookies (android_vr & web_embedded bypass bot walls)
-    base_opts = {
+    stage1_opts = {
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
         "socket_timeout": 30,
-        "ignoreerrors": True,
         "format": "b/bestvideo+bestaudio/best",
         "extractor_args": {
             "youtube": {
-                "player_client": ["android_vr", "web_embedded", "mweb", "android"],
+                "player_client": ["android_vr", "web_embedded"],
             }
         },
     }
 
     info = None
+    # Stage 1: Cloud Bypass (android_vr / web_embedded)
     try:
-        with yt_dlp.YoutubeDL(base_opts) as ydl:
+        with yt_dlp.YoutubeDL(stage1_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-    except Exception as exc:
-        if "facebook.com" in url.lower() and "m.facebook.com" not in url.lower():
-            alt_url = re.sub(r"https?://(www\.|web\.)?facebook\.com", "https://m.facebook.com", url, flags=re.IGNORECASE)
-            try:
-                with yt_dlp.YoutubeDL(base_opts) as ydl:
-                    info = ydl.extract_info(alt_url, download=False)
-            except Exception as alt_exc:
-                err = classify_error(alt_exc)
-                raise ValueError(err["message"]) from alt_exc
-        else:
-            # Stage 2: Retry with web client & cookies if available
-            try:
-                alt_opts = dict(base_opts)
-                alt_opts["extractor_args"] = {"youtube": {"player_client": ["web", "web_creator", "mweb"]}}
-                if _ck_file:
-                    alt_opts["cookiefile"] = _ck_file
-                with yt_dlp.YoutubeDL(alt_opts) as alt_ydl:
-                    info = alt_ydl.extract_info(url, download=False)
-            except Exception as alt_exc:
-                err = classify_error(alt_exc)
-                raise ValueError(err["message"]) from alt_exc
+    except Exception:
+        pass
+
+    # Stage 2: Mobile Failover (mweb / android)
+    if not info:
+        try:
+            stage2_opts = dict(stage1_opts)
+            stage2_opts["extractor_args"] = {"youtube": {"player_client": ["mweb", "android"]}}
+            with yt_dlp.YoutubeDL(stage2_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+        except Exception:
+            pass
+
+    # Stage 3: Authenticated Web Fallback (with cookies if available)
+    if not info:
+        try:
+            stage3_opts = dict(stage1_opts)
+            stage3_opts["extractor_args"] = {"youtube": {"player_client": ["web", "web_creator"]}}
+            if _ck_file:
+                stage3_opts["cookiefile"] = _ck_file
+            with yt_dlp.YoutubeDL(stage3_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+        except Exception as exc:
+            err = classify_error(exc)
+            raise ValueError(err["message"]) from exc
 
     if not info:
         raise ValueError("Could not extract video information from this URL.")
@@ -615,17 +620,16 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
     tier = get_format_tier(format_id)
     is_audio = tier["is_audio"]
 
-    # Stage 1: Cloud Bypass without cookies (android_vr & web_embedded bypass bot walls)
-    opts_no_cookies = {
+    # Stage 1: Cloud Bypass without cookies (android_vr & web_embedded)
+    opts_s1 = {
         "quiet":        True,
         "no_warnings":  True,
         "noplaylist":   True,
         "socket_timeout": 30,
-        "ignoreerrors": True,
         "format": "b/bestvideo+bestaudio/best",
         "extractor_args": {
             "youtube": {
-                "player_client": ["android_vr", "web_embedded", "mweb", "android"],
+                "player_client": ["android_vr", "web_embedded"],
             }
         },
     }
@@ -637,16 +641,22 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
         except Exception:
             return None
 
-    # Stage 1 attempt (no cookies)
-    info = _try_extract(opts_no_cookies)
+    # Stage 1 attempt
+    info = _try_extract(opts_s1)
 
-    # Stage 2 attempt (retry with cookies if available)
+    # Stage 2 attempt (mobile)
     if not info:
-        opts_cookies = dict(opts_no_cookies)
-        opts_cookies["extractor_args"] = {"youtube": {"player_client": ["web", "web_creator", "mweb"]}}
+        opts_s2 = dict(opts_s1)
+        opts_s2["extractor_args"] = {"youtube": {"player_client": ["mweb", "android"]}}
+        info = _try_extract(opts_s2)
+
+    # Stage 3 attempt (cookies / web)
+    if not info:
+        opts_s3 = dict(opts_s1)
+        opts_s3["extractor_args"] = {"youtube": {"player_client": ["web", "web_creator"]}}
         if COOKIES_PATH.exists() and COOKIES_PATH.is_file() and COOKIES_PATH.stat().st_size > 200:
-            opts_cookies["cookiefile"] = str(COOKIES_PATH)
-        info = _try_extract(opts_cookies)
+            opts_s3["cookiefile"] = str(COOKIES_PATH)
+        info = _try_extract(opts_s3)
 
     if not info:
         raise ValueError("Could not extract video. The video may be unavailable or restricted.")
