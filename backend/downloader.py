@@ -578,6 +578,175 @@ async def download_to_temp(
 
 
 # ---------------------------------------------------------------------------
+# Client-Side Redirect — Extract CDN URLs and return as JSON
+# The browser downloads directly from YouTube CDN — zero Render server bandwidth!
+# ---------------------------------------------------------------------------
+
+def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
+    """
+    Use yt-dlp to extract direct CDN streaming URLs for a video.
+    Returns JSON with { video_url, audio_url, title, ext, needs_merge, filesize }.
+
+    The key innovation: the SERVER only extracts URLs (fast, ~1-2 sec).
+    The BROWSER then downloads directly from YouTube/Facebook CDN.
+    This means:
+      - Render server uses zero bandwidth for actual video transfer
+      - YouTube IP blocks don't affect actual download (user's IP is used)
+      - No server disk space consumed
+    """
+    url = normalize_url(url)
+    tier = get_format_tier(format_id)
+    is_audio = tier["is_audio"]
+
+    # Use android_vr client — bypasses bot detection without needing cookies
+    opts = {
+        "quiet":        True,
+        "no_warnings":  True,
+        "noplaylist":   True,
+        "socket_timeout": 30,
+        "http_headers": {"User-Agent": _UA},
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android_vr", "web_embedded", "mweb", "android", "web"],
+            }
+        },
+    }
+
+    # Load cookies if available
+    if COOKIES_PATH.exists() and COOKIES_PATH.is_file():
+        opts["cookiefile"] = str(COOKIES_PATH)
+
+    def _try_extract(client_opts: dict) -> Optional[dict]:
+        try:
+            with yt_dlp.YoutubeDL(client_opts) as ydl:
+                return ydl.extract_info(url, download=False)
+        except Exception:
+            return None
+
+    # Primary attempt
+    info = _try_extract(opts)
+
+    # Fallback: try TV/mweb client if primary failed
+    if not info:
+        fallback_opts = dict(opts)
+        fallback_opts["extractor_args"] = {"youtube": {"player_client": ["tv", "mweb", "web"]}}
+        info = _try_extract(fallback_opts)
+
+    if not info:
+        raise ValueError("Could not extract video. The video may be unavailable or restricted.")
+
+    title     = info.get("title", "video")
+    thumbnail = info.get("thumbnail", "")
+    duration  = info.get("duration", 0)
+    platform  = detect_platform(url)
+
+    # ── Audio-only request ────────────────────────────────────────────────────
+    if is_audio:
+        # Find best audio-only format with a direct URL
+        best_audio = None
+        best_abr   = 0
+        for fmt in (info.get("formats") or []):
+            vcodec = (fmt.get("vcodec") or "none").lower()
+            acodec = (fmt.get("acodec") or "none").lower()
+            direct = fmt.get("url", "")
+            if vcodec in ("none", "") and acodec not in ("none", "") and direct.startswith("http"):
+                abr = fmt.get("abr") or 0
+                if abr > best_abr:
+                    best_abr   = abr
+                    best_audio = fmt
+
+        if best_audio:
+            return {
+                "title":       title,
+                "thumbnail":   thumbnail,
+                "duration":    duration,
+                "platform":    platform,
+                "ext":         "webm",          # audio stream
+                "needs_merge": False,
+                "video_url":   best_audio["url"],
+                "audio_url":   None,
+                "filesize":    best_audio.get("filesize") or best_audio.get("filesize_approx"),
+            }
+        raise ValueError("No direct audio stream URL found for this video.")
+
+    # ── Video request ─────────────────────────────────────────────────────────
+    # Get requested height cap from format_id
+    height_caps = {
+        "4k": 2160, "1080p": 1080, "720p": 720,
+        "480p": 480, "360p": 360, "best_auto": 9999,
+    }
+    max_h = height_caps.get(format_id, 9999)
+
+    # Look for a combined (muxed) stream first — browser can download as-is
+    best_muxed  = None
+    best_mux_h  = 0
+    best_video  = None  # video-only
+    best_v_h    = 0
+    best_audio  = None  # audio-only companion
+    best_abr    = 0
+
+    for fmt in (info.get("formats") or []):
+        vcodec = (fmt.get("vcodec") or "none").lower()
+        acodec = (fmt.get("acodec") or "none").lower()
+        h      = fmt.get("height") or 0
+        direct = fmt.get("url", "")
+        if not direct.startswith("http"):
+            continue
+
+        has_video = vcodec not in ("none", "")
+        has_audio = acodec not in ("none", "")
+
+        if has_video and has_audio and h <= max_h and h > best_mux_h:
+            best_mux_h  = h
+            best_muxed  = fmt
+
+        if has_video and not has_audio and h <= max_h and h > best_v_h:
+            best_v_h   = h
+            best_video = fmt
+
+        if not has_video and has_audio:
+            abr = fmt.get("abr") or 0
+            if abr > best_abr:
+                best_abr   = abr
+                best_audio = fmt
+
+    # ── Case 1: Combined (muxed) stream — browser downloads directly ──────────
+    if best_muxed:
+        return {
+            "title":       title,
+            "thumbnail":   thumbnail,
+            "duration":    duration,
+            "platform":    platform,
+            "ext":         best_muxed.get("ext", "mp4"),
+            "needs_merge": False,
+            "video_url":   best_muxed["url"],
+            "audio_url":   None,
+            "filesize":    best_muxed.get("filesize") or best_muxed.get("filesize_approx"),
+        }
+
+    # ── Case 2: Separate DASH streams — return both URLs to frontend ──────────
+    # Frontend will download video + audio separately, then use ffmpeg.wasm or
+    # simply offer the video-only stream with a note.
+    if best_video:
+        v_size = best_video.get("filesize") or best_video.get("filesize_approx") or 0
+        a_size = (best_audio.get("filesize") or best_audio.get("filesize_approx") or 0) if best_audio else 0
+        return {
+            "title":       title,
+            "thumbnail":   thumbnail,
+            "duration":    duration,
+            "platform":    platform,
+            "ext":         best_video.get("ext", "mp4"),
+            "needs_merge": True,   # Frontend uses /api/stream for merging
+            "video_url":   best_video["url"],
+            "audio_url":   best_audio["url"] if best_audio else None,
+            "video_height": best_v_h,
+            "filesize":    (v_size + a_size) or None,
+        }
+
+    raise ValueError("No downloadable video stream found for this URL and quality.")
+
+
+
 # Live Streaming — FFmpeg Pipeline (instant browser dialog, no server storage)
 # ---------------------------------------------------------------------------
 

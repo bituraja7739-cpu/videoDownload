@@ -1,11 +1,13 @@
 """
 routes/download.py — Download endpoints.
 
-GET  /api/stream          — Two-phase: extract URLs, then FFmpeg→browser pipeline.
+GET  /api/get-links       — PRIMARY: Extract CDN URLs → browser downloads directly (zero server bandwidth)
+GET  /api/stream          — Fallback: FFmpeg merge pipeline for unsupported formats
 POST /api/start-download  — Background job for server-side download.
 GET  /api/fetch/{job_id}  — Retrieve a completed server-side download.
 """
 
+import asyncio
 import re
 import uuid
 from typing import Optional
@@ -18,6 +20,7 @@ from pydantic import BaseModel
 from ..downloader import (
     cleanup_job,
     download_to_temp,
+    extract_direct_links,
     get_stream_info,
     stream_via_ffmpeg,
     get_format_tier,
@@ -27,15 +30,41 @@ router = APIRouter(tags=["Download"])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# GET /api/stream   ←  PRIMARY ENDPOINT
+# GET /api/get-links  ← PRIMARY ENDPOINT (Cloud-Safe, Zero Server Bandwidth)
 #
-# Flow (two async phases):
-#   Phase 1 — yt-dlp extracts direct video+audio HTTP URLs (no download).
-#   Phase 2 — FFmpeg fetches those URLs, merges them, pipes fragmented MP4/MP3
-#             directly to the browser as a StreamingResponse.
-#
-# The browser sees the response headers immediately and opens its native
-# Download Manager, showing live MB/speed/ETA from the OS download tracker.
+# Architecture:
+#   1. yt-dlp extracts direct CDN video/audio URLs from YouTube/Facebook/Instagram
+#   2. Returns { video_url, audio_url, title, ext } JSON to the frontend
+#   3. Browser downloads directly from YouTube CDN — Render server transfers 0 bytes
+#   4. Completely bypasses Render IP blocks since the actual download comes from
+#      the USER's IP address, not the server's IP!
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/get-links")
+async def get_download_links(
+    url:       str           = Query(..., description="Video page URL"),
+    format_id: str           = Query("best_auto", description="Quality tier"),
+):
+    """
+    Extract direct CDN download URLs for a video and return as JSON.
+    The browser then downloads directly from the CDN — zero server bandwidth used.
+    This completely avoids YouTube IP blocks on cloud servers like Render.
+    """
+    if not url:
+        raise HTTPException(status_code=400, detail="URL is required.")
+
+    try:
+        links = await asyncio.to_thread(extract_direct_links, url.strip(), format_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to extract links: {exc}")
+
+    return links
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /api/stream   ← FALLBACK (for FFmpeg merging when needed)
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/stream")
@@ -45,12 +74,7 @@ async def stream_download(
     cookies_file: Optional[str] = Query(None),
 ):
     """
-    Instantly stream video (merged video+audio) or audio (MP3) to the browser.
-
-    If single pre-muxed media URL is available (Facebook, Instagram, combined MP4s):
-      Redirects directly to CDN media URL -> Chrome Download Manager opens with 0.9 / 834 MB!
-    If separate video+audio streams (YouTube 1080p/4K):
-      FFmpeg streams merged MP4 directly to browser with live progress!
+    Stream merged video+audio via FFmpeg pipeline (fallback for unsupported CDN formats).
     """
     if not url:
         raise HTTPException(status_code=400, detail="URL is required.")
@@ -66,23 +90,16 @@ async def stream_download(
     ext       = "mp3" if is_audio else "mp4"
     raw_title = info.get("title", "download")
 
-    # Clean non-ASCII emojis/special symbols for ASCII header fallback
     ascii_title = re.sub(r'[^\x00-\x7F]+', '', raw_title)
     safe_ascii  = re.sub(r'[\\/*?:"<>|]', "_", ascii_title)[:80].strip()
     ascii_name  = f"{safe_ascii}.{ext}" if safe_ascii else f"vidsnap_download.{ext}"
-
-    # UTF-8 encoded filename for modern browsers (RFC 5987)
     utf8_name   = quote(f"{raw_title}.{ext}")
     content_disposition = f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{utf8_name}'
-
     media_type = "audio/mpeg" if is_audio else "video/mp4"
 
-    # If single pre-muxed stream URL (Facebook, Instagram, combined MP4), redirect directly
-    # Chrome Download Manager gets Content-Length from CDN and displays "0.9 / 834 MB • 1 hour left"!
     if info.get("mode") in ("single", "audio") and info.get("single_url"):
         return RedirectResponse(url=info["single_url"])
 
-    # For separate streams (YouTube 1080p/4K), stream merged MP4 via FFmpeg chunked encoding
     headers = {
         "Content-Disposition": content_disposition,
         "X-Accel-Buffering":   "no",

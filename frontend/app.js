@@ -204,36 +204,96 @@ async function analyzeUrl(url) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Trigger Chrome Download Manager Directly
-// Opens Chrome's native Download Manager with Live MB & Progress!
+// Trigger Download — Client-Side Redirect Architecture
+//
+// Flow:
+//   1. Call /api/get-links → get direct YouTube CDN URL
+//   2a. needs_merge=false → <a href="CDN_URL" download> → browser downloads
+//       directly from YouTube. Render server sends ZERO bytes. No IP blocks!
+//   2b. needs_merge=true  → fall back to /api/stream (FFmpeg merge on server)
 // ─────────────────────────────────────────────────────────────
-function triggerChromeDownload(formatId, btnEl) {
+async function triggerChromeDownload(formatId, btnEl) {
   if (!currentUrl) return;
 
-  // Show status banner
+  // Show loading state on button
+  const origText = btnEl.innerHTML;
+  btnEl.disabled    = true;
+  btnEl.textContent = 'Getting link…';
+
   dlProgress.hidden = false;
-  dlStatusText.textContent  = '⬇ Download sent to Chrome Download Manager!';
+  dlStatusText.textContent  = '🔗 Extracting direct download link…';
   dlPercentText.textContent = '';
-  dlBarFill.style.width     = '100%';
+  dlBarFill.style.width     = '60%';
   dlBarFill.style.background = 'linear-gradient(90deg, #0085CF, #01C5C9)';
-  dlSpeed.textContent = 'Check your browser downloads bar (top-right in Chrome) for live MB & speed!';
+  dlSpeed.textContent = 'Connecting to CDN…';
   dlEta.textContent   = '';
   dlProgress.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-  // Direct trigger link
-  const streamUrl = `/api/stream?url=${encodeURIComponent(currentUrl)}&format_id=${encodeURIComponent(formatId)}`;
+  try {
+    // Step 1: Ask server to extract CDN URLs (fast ~1-2 sec, zero bandwidth)
+    const res = await fetch(
+      `/api/get-links?url=${encodeURIComponent(currentUrl)}&format_id=${encodeURIComponent(formatId)}`
+    );
+    const data = await res.json();
 
-  const a = document.createElement('a');
-  a.href = streamUrl;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Could not extract download link.');
+    }
 
-  setTimeout(() => {
-    dlProgress.hidden = true;
-  }, 6000);
+    if (data.needs_merge) {
+      // Step 2b: DASH stream (video + audio separate) — use server FFmpeg merge
+      dlStatusText.textContent = '⬇ Downloading via server merge…';
+      dlBarFill.style.width    = '100%';
+      dlSpeed.textContent = 'Server is merging video + audio. Download will start shortly.';
+
+      const streamUrl = `/api/stream?url=${encodeURIComponent(currentUrl)}&format_id=${encodeURIComponent(formatId)}`;
+      const a = document.createElement('a');
+      a.href = streamUrl;
+      a.download = `${data.title || 'video'}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+    } else {
+      // Step 2a: Muxed stream — browser downloads DIRECTLY from YouTube CDN!
+      // Render server sends ZERO bytes. No IP blocks possible!
+      dlStatusText.textContent = '⬇ Download started from CDN directly!';
+      dlBarFill.style.width    = '100%';
+      dlSpeed.textContent = '✅ Downloading directly from YouTube CDN — your browser handles it!';
+
+      const ext  = data.ext || 'mp4';
+      const name = `${(data.title || 'video').replace(/[\\/*?:"<>|]/g, '_')}.${ext}`;
+
+      const a = document.createElement('a');
+      a.href     = data.video_url;
+      a.download = name;
+      a.target   = '_blank';        // Opens in new tab if browser blocks direct download
+      a.rel      = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+  } catch (err) {
+    // Fallback: direct /api/stream if get-links fails
+    dlStatusText.textContent = '⬇ Downloading…';
+    dlBarFill.style.width    = '100%';
+    dlSpeed.textContent = 'Sending to browser download manager…';
+
+    const streamUrl = `/api/stream?url=${encodeURIComponent(currentUrl)}&format_id=${encodeURIComponent(formatId)}`;
+    const a = document.createElement('a');
+    a.href = streamUrl;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    btnEl.disabled   = false;
+    btnEl.innerHTML  = origText;
+    setTimeout(() => { dlProgress.hidden = true; }, 7000);
+  }
 }
+
 
 // ─────────────────────────────────────────────────────────────
 // Event Listeners
