@@ -294,7 +294,7 @@ def build_ydl_opts(
         "concurrent_fragment_downloads": 4,
         "extractor_args": {
             "youtube": {
-                "player_client": _player_clients,
+                "player_client": ["android_vr"],
             }
         },
     }
@@ -387,7 +387,7 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
         "format": "b/bestvideo+bestaudio/best",
         "extractor_args": {
             "youtube": {
-                "player_client": ["android_vr", "web_embedded"],
+                "player_client": ["android_vr"],
             }
         },
     }
@@ -620,7 +620,7 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
     tier = get_format_tier(format_id)
     is_audio = tier["is_audio"]
 
-    # Stage 1: Cloud Bypass without cookies (android_vr & web_embedded)
+    # Stage 1: Pure android_vr Cloud Bypass (no cookies, zero bot detection)
     opts_s1 = {
         "quiet":        True,
         "no_warnings":  True,
@@ -629,7 +629,7 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
         "format": "b/bestvideo+bestaudio/best",
         "extractor_args": {
             "youtube": {
-                "player_client": ["android_vr", "web_embedded"],
+                "player_client": ["android_vr"],
             }
         },
     }
