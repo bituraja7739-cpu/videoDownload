@@ -390,12 +390,11 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
         "no_warnings": True,
         "noplaylist": True,
         "socket_timeout": 30,
+        "format": "b/bestvideo+bestaudio/best",
         "http_headers": {"User-Agent": _UA},
         "extractor_args": {
             "youtube": {
-                # WITH cookies: web client uses login session to bypass cloud IP block
-                # WITHOUT cookies: android_vr bypasses bot detection (skipped when cookies set)
-                "player_client": ["web", "web_creator"] if _has_cookies else ["android_vr", "web_embedded", "mweb"],
+                "player_client": ["android_vr", "web_embedded", "mweb", "android", "web", "web_creator"],
             }
         },
     }
@@ -633,16 +632,17 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
         "no_warnings":  True,
         "noplaylist":   True,
         "socket_timeout": 30,
+        "format": "b/bestvideo+bestaudio/best",
         "http_headers": {"User-Agent": _UA},
         "extractor_args": {
             "youtube": {
-                "player_client": ["android_vr", "web_embedded", "mweb", "android", "web"],
+                "player_client": ["android_vr", "web_embedded", "mweb", "android", "web", "web_creator"],
             }
         },
     }
 
     # Load cookies if available
-    if COOKIES_PATH.exists() and COOKIES_PATH.is_file():
+    if COOKIES_PATH.exists() and COOKIES_PATH.is_file() and COOKIES_PATH.stat().st_size > 200:
         opts["cookiefile"] = str(COOKIES_PATH)
 
     def _try_extract(client_opts: dict) -> Optional[dict]:
