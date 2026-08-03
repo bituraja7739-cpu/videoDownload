@@ -634,6 +634,36 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
         },
     }
 
+    # Stage 2: Mobile Failover
+    opts_s2 = {
+        "quiet":        True,
+        "no_warnings":  True,
+        "noplaylist":   True,
+        "socket_timeout": 30,
+        "format": "b/bestvideo+bestaudio/best",
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["mweb", "android"],
+            }
+        },
+    }
+
+    # Stage 3: Authenticated Web Fallback
+    opts_s3 = {
+        "quiet":        True,
+        "no_warnings":  True,
+        "noplaylist":   True,
+        "socket_timeout": 30,
+        "format": "b/bestvideo+bestaudio/best",
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["web", "web_creator"],
+            }
+        },
+    }
+    if COOKIES_PATH.exists() and COOKIES_PATH.is_file() and COOKIES_PATH.stat().st_size > 200:
+        opts_s3["cookiefile"] = str(COOKIES_PATH)
+
     def _try_extract(client_opts: dict) -> Optional[dict]:
         try:
             with yt_dlp.YoutubeDL(client_opts) as ydl:
@@ -646,16 +676,10 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
 
     # Stage 2 attempt (mobile)
     if not info:
-        opts_s2 = dict(opts_s1)
-        opts_s2["extractor_args"] = {"youtube": {"player_client": ["mweb", "android"]}}
         info = _try_extract(opts_s2)
 
     # Stage 3 attempt (cookies / web)
     if not info:
-        opts_s3 = dict(opts_s1)
-        opts_s3["extractor_args"] = {"youtube": {"player_client": ["web", "web_creator"]}}
-        if COOKIES_PATH.exists() and COOKIES_PATH.is_file() and COOKIES_PATH.stat().st_size > 200:
-            opts_s3["cookiefile"] = str(COOKIES_PATH)
         info = _try_extract(opts_s3)
 
     if not info:
