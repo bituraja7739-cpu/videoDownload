@@ -37,21 +37,17 @@ async def lifespan(app: FastAPI):
     """Startup / shutdown logic."""
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
-    # ── Bootstrap cookies from Render environment variable ────────────────────
-    # On Render dashboard: set YOUTUBE_COOKIES = (full content of cookies.txt)
-    # This avoids storing cookies in git while still enabling YouTube downloads.
-    import os
-    yt_cookies_env = os.environ.get("YOUTUBE_COOKIES", "").strip()
-    cookies_path   = Path(__file__).parent.parent / "cookies.txt"
-    if yt_cookies_env:
-        cookies_path.write_text(yt_cookies_env, encoding="utf-8")
-        logger.info("  Cookies        : ✓ Loaded from YOUTUBE_COOKIES env var")
-    elif cookies_path.exists() and cookies_path.stat().st_size > 100:
-        logger.info("  Cookies        : ✓ Found cookies.txt file")
-    else:
-        logger.warning("  Cookies        : ✗ Not set — YouTube may block cloud server IP")
-        logger.warning("  Fix: Set YOUTUBE_COOKIES env var in Render dashboard")
-    # ─────────────────────────────────────────────────────────────────────────
+    ffmpeg_ok = check_ffmpeg()
+    ytdlp_ver = get_ytdlp_version()
+
+    logger.info("=" * 50)
+    logger.info("  VidSnap started")
+    logger.info(f"  yt-dlp version : {ytdlp_ver}")
+    logger.info(f"  FFmpeg found   : {'✓' if ffmpeg_ok else '✗  (MP3/merged downloads may fail)'}")
+    logger.info(f"  Temp dir       : {TEMP_DIR}")
+    logger.info("=" * 50)
+
+    yield
 
     ffmpeg_ok = check_ffmpeg()
     ytdlp_ver = get_ytdlp_version()

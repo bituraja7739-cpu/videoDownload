@@ -375,9 +375,7 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
     """
     url = normalize_url(url)
 
-    _ck_file = cookies_file if (cookies_file and os.path.isfile(cookies_file)) else (
-        str(COOKIES_PATH) if (COOKIES_PATH.exists() and COOKIES_PATH.stat().st_size > 200) else None
-    )
+    _ck_file = cookies_file if (cookies_file and os.path.isfile(cookies_file)) else None
 
     stage1_opts = {
         "quiet": True,
@@ -657,8 +655,6 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
             }
         },
     }
-    if COOKIES_PATH.exists() and COOKIES_PATH.is_file() and COOKIES_PATH.stat().st_size > 200:
-        opts_s3["cookiefile"] = str(COOKIES_PATH)
 
     def _try_extract(client_opts: dict) -> Optional[dict]:
         try:
