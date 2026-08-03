@@ -391,8 +391,15 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
                     err = classify_error(alt_exc)
                     raise ValueError(err["message"]) from alt_exc
             else:
-                err = classify_error(exc)
-                raise ValueError(err["message"]) from exc
+                # Fallback: Retry YouTube with TV and mweb player client
+                try:
+                    alt_opts = dict(base_opts)
+                    alt_opts["extractor_args"] = {"youtube": {"player_client": ["tv", "mweb", "web"]}}
+                    with yt_dlp.YoutubeDL(alt_opts) as alt_ydl:
+                        info = alt_ydl.extract_info(url, download=False)
+                except Exception as alt_exc:
+                    err = classify_error(alt_exc)
+                    raise ValueError(err["message"]) from alt_exc
 
     if not info:
         raise ValueError("Could not extract video information from this URL.")
@@ -618,8 +625,14 @@ def _get_direct_urls_sync(
                     err = classify_error(alt_exc)
                     raise ValueError(err["message"]) from alt_exc
             else:
-                err = classify_error(exc)
-                raise ValueError(err["message"]) from exc
+                try:
+                    alt_opts = dict(opts)
+                    alt_opts["extractor_args"] = {"youtube": {"player_client": ["tv", "mweb", "web"]}}
+                    with yt_dlp.YoutubeDL(alt_opts) as alt_ydl:
+                        info = alt_ydl.extract_info(url, download=False)
+                except Exception as alt_exc:
+                    err = classify_error(alt_exc)
+                    raise ValueError(err["message"]) from alt_exc
 
     if not info:
         raise ValueError("Could not extract stream URLs.")
