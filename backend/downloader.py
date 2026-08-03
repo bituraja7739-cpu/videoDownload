@@ -291,7 +291,6 @@ def build_ydl_opts(
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
-        "http_headers": {"User-Agent": _UA},
         "concurrent_fragment_downloads": 4,
         "extractor_args": {
             "youtube": {
@@ -385,7 +384,6 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
         "noplaylist": True,
         "socket_timeout": 30,
         "format": "b/bestvideo+bestaudio/best",
-        "http_headers": {"User-Agent": _UA},
         "extractor_args": {
             "youtube": {
                 "player_client": ["android_vr", "web_embedded", "mweb"],
@@ -623,7 +621,6 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
         "noplaylist":   True,
         "socket_timeout": 30,
         "format": "b/bestvideo+bestaudio/best",
-        "http_headers": {"User-Agent": _UA},
         "extractor_args": {
             "youtube": {
                 "player_client": ["android_vr", "web_embedded", "mweb"],
