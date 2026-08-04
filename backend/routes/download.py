@@ -64,6 +64,67 @@ async def get_download_links(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# GET /api/proxy-download  ← AUTO FILE DOWNLOAD PROXY (No New Tabs)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/proxy-download")
+async def proxy_download(
+    url:   str = Query(..., description="Direct CDN URL"),
+    title: str = Query("video", description="Desired filename"),
+    ext:   str = Query("mp4", description="File extension"),
+):
+    """
+    Proxies direct CDN media URL with Content-Disposition: attachment header.
+    Forces browser to trigger AUTO FILE DOWNLOAD directly to disk instead of opening in a new tab.
+    """
+    if not url:
+        raise HTTPException(status_code=400, detail="URL is required.")
+
+    import requests
+
+    raw_title = title.strip() or "video"
+    clean_title = re.sub(r'[\\/*?:"<>|]', '_', raw_title)[:80].strip() or "video"
+    ascii_name  = f"{clean_title}.{ext}"
+    utf8_name   = quote(f"{raw_title}.{ext}")
+    content_disposition = f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{utf8_name}'
+
+    try:
+        req = requests.get(
+            url,
+            stream=True,
+            timeout=30,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch CDN stream: {exc}")
+
+    if req.status_code >= 400:
+        raise HTTPException(status_code=req.status_code, detail="CDN stream returned error.")
+
+    media_type = req.headers.get("Content-Type", "video/mp4")
+    content_length = req.headers.get("Content-Length")
+
+    headers = {
+        "Content-Disposition": content_disposition,
+        "Content-Type": media_type,
+        "X-Accel-Buffering": "no",
+        "Cache-Control": "no-cache",
+    }
+    if content_length:
+        headers["Content-Length"] = content_length
+
+    def iter_chunks():
+        try:
+            for chunk in req.iter_content(chunk_size=65536):
+                if chunk:
+                    yield chunk
+        finally:
+            req.close()
+
+    return StreamingResponse(iter_chunks(), media_type=media_type, headers=headers)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # GET /api/stream   ← FALLBACK (for FFmpeg merging when needed)
 # ─────────────────────────────────────────────────────────────────────────────
 

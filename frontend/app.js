@@ -275,19 +275,17 @@ async function triggerChromeDownload(formatId, btnEl) {
       a.remove();
 
     } else {
-      // Step 2a: Muxed stream — direct download
-      dlStatusText.textContent = '⬇ Download started directly!';
+      // Step 2a: Auto file download via proxy (forces browser file save dialog, no new tab!)
+      dlStatusText.textContent = '⬇ Download started automatically!';
       dlBarFill.style.width    = '100%';
-      dlSpeed.textContent = '✅ Downloading directly — your browser handles it!';
+      dlSpeed.textContent      = '✅ Saving video file directly to your Downloads folder…';
 
       const ext  = data.ext || 'mp4';
-      const name = `${(data.title || 'video').replace(/[\\/*?:"<>|]/g, '_')}.${ext}`;
+      const downloadUrl = `/api/proxy-download?url=${encodeURIComponent(data.video_url)}&title=${encodeURIComponent(data.title || 'video')}&ext=${encodeURIComponent(ext)}`;
 
       const a = document.createElement('a');
-      a.href     = data.video_url;
-      a.download = name;
-      a.target   = '_blank';        // Opens in new tab if browser blocks direct download
-      a.rel      = 'noopener';
+      a.href     = downloadUrl;
+      a.download = `${(data.title || 'video').replace(/[\\/*?:"<>|]/g, '_')}.${ext}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
