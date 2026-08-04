@@ -2,7 +2,7 @@
 downloader.py — Core yt-dlp wrapper for VidSnap.
 
 Handles:
-- Multi-platform metadata extraction (YouTube, Instagram, Facebook)
+- Multi-platform metadata extraction (Instagram, Facebook)
 - Full quality-tier selection
 - Async/sync downloads to temp storage
 - Live streaming via subprocess stdout pipe
@@ -29,22 +29,11 @@ import yt_dlp
 TEMP_DIR = Path(tempfile.gettempdir()) / "vidsnap_downloads"
 TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
-# Default cookies file path for cloud deployment (Render/AWS)
-COOKIES_PATH = Path(__file__).parent.parent / "cookies.txt"
-
 # In-memory job progress store  { job_id: { status, percent, speed, eta, ... } }
 progress_store: Dict[str, dict] = {}
 
-# TLS Impersonation Target (bypasses cloud IP bot detection using curl_cffi)
-try:
-    from yt_dlp.networking.impersonate import ImpersonateTarget
-    IMPERSONATE_TARGET = ImpersonateTarget.from_str("chrome-120:macos-14")
-except Exception:
-    IMPERSONATE_TARGET = None
-
 # Platform detection patterns
 PLATFORM_PATTERNS = {
-    "youtube": re.compile(r"(youtube\.com|youtu\.be)", re.IGNORECASE),
     "instagram": re.compile(r"instagram\.com", re.IGNORECASE),
     "facebook": re.compile(r"(facebook\.com|fb\.com|fb\.watch)", re.IGNORECASE),
 }
@@ -139,11 +128,54 @@ def normalize_url(url: str) -> str:
 
 
 def detect_platform(url: str) -> str:
-    """Return 'youtube', 'instagram', 'facebook', or 'unknown'."""
+    """Return 'instagram', 'facebook', or 'unknown'."""
     for platform, pattern in PLATFORM_PATTERNS.items():
         if pattern.search(url):
             return platform
     return "unknown"
+
+
+def detect_content_type(url: str, info: dict) -> str:
+    """
+    Detects if the content is a reel, story, photo, video, or carousel.
+    Returns one of: 'reel', 'story', 'photo', 'video', 'carousel'.
+    """
+    url_lower = url.lower()
+    
+    # Instagram detection
+    if "instagram.com" in url_lower:
+        if "/reel/" in url_lower:
+            return "reel"
+        elif "/stories/" in url_lower:
+            return "story"
+        elif "/p/" in url_lower:
+            if info.get('vcodec') and info.get('vcodec') != 'none':
+                return "video"
+            return "photo"
+
+    # Facebook detection
+    if "facebook.com" in url_lower or "fb.watch" in url_lower:
+        if "/reel/" in url_lower:
+            return "reel"
+        elif "/stories/" in url_lower:
+            return "story"
+        elif "/photo" in url_lower:
+            return "photo"
+        elif "/watch/" in url_lower or "/videos/" in url_lower:
+            return "video"
+            
+    # Fallbacks
+    _type = info.get('_type')
+    if _type in ['url', 'url_transparent', 'playlist', 'multi_video']:
+        if _type == 'playlist':
+            return 'carousel'
+        return _type
+        
+    ext = info.get('ext', '')
+    if ext in ('jpg', 'jpeg', 'png', 'webp'):
+        return "photo"
+        
+    return "video"
 
 
 def find_ffmpeg() -> Optional[str]:
@@ -236,7 +268,7 @@ def classify_error(exc: Exception) -> dict:
             "code": "unsupported_url",
             "message": (
                 "This URL is not supported or could not be parsed. "
-                "Only YouTube, Instagram, and Facebook links are supported."
+                "Only Instagram and Facebook links are supported."
             ),
         }
     if any(k in msg for k in ("copyright", "blocked", "not available in your country")):
@@ -269,25 +301,7 @@ def build_ydl_opts(
 ) -> dict:
     """
     Build a complete yt-dlp options dict.
-
-    Args:
-        format_selector:  yt-dlp format string (e.g. 'bestvideo+bestaudio/best')
-        output_template:  outtmpl path (e.g. '/tmp/vidsnap/abc/download.%(ext)s')
-        is_audio_only:    Whether to post-process to MP3
-        job_id:           If provided, attaches a progress hook to update progress_store
-        cookies_file:     Optional path to a Netscape cookies.txt file
     """
-    # Determine if cookies are available
-    # IMPORTANT: android_vr client is skipped by yt-dlp when cookies are present.
-    # So we use TWO different strategies:
-    #   - WITH cookies: use 'web' client (supports cookies, works on cloud IPs)
-    #   - WITHOUT cookies: use 'android_vr' (bypasses bot detection, no login needed)
-    _has_cookies = (
-        (cookies_file and os.path.isfile(cookies_file))
-        or (COOKIES_PATH.exists() and COOKIES_PATH.is_file() and COOKIES_PATH.stat().st_size > 200)
-    )
-    _player_clients = ["web", "web_creator"] if _has_cookies else ["android_vr", "web_embedded", "mweb"]
-
     opts: dict = {
         "format": format_selector,
         "outtmpl": output_template,
@@ -299,14 +313,7 @@ def build_ydl_opts(
         "no_warnings": True,
         "noplaylist": True,
         "concurrent_fragment_downloads": 4,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["android_vr"],
-            }
-        },
     }
-    if IMPERSONATE_TARGET:
-        opts["impersonate"] = IMPERSONATE_TARGET
 
     # FFmpeg location
     ffmpeg_bin = find_ffmpeg()
@@ -336,8 +343,6 @@ def build_ydl_opts(
     # Cookies
     if cookies_file and os.path.isfile(cookies_file):
         opts["cookiefile"] = cookies_file
-    elif COOKIES_PATH.exists() and COOKIES_PATH.is_file():
-        opts["cookiefile"] = str(COOKIES_PATH)
 
     # Progress hook (for SSE tracking)
     if job_id:
@@ -377,66 +382,33 @@ def build_ydl_opts(
 def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
     """
     Synchronously extract video metadata with yt-dlp.
-    3-Stage Failover Pipeline:
-      Stage 1: android_vr & web_embedded (no cookies) -> bypasses bot detection on cloud IPs
-      Stage 2: mweb & android (no cookies) -> mobile failover
-      Stage 3: web & web_creator (with cookies if available) -> authenticated fallback
+    Simple single-pass extraction.
     """
     url = normalize_url(url)
 
-    _ck_file = cookies_file if (cookies_file and os.path.isfile(cookies_file)) else None
-
-    stage1_opts = {
+    opts = {
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
         "socket_timeout": 30,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["android_vr"],
-            }
-        },
     }
-    if IMPERSONATE_TARGET:
-        stage1_opts["impersonate"] = IMPERSONATE_TARGET
+
+    if cookies_file and os.path.isfile(cookies_file):
+        opts["cookiefile"] = cookies_file
 
     info = None
-    # Stage 1: Cloud Bypass (android_vr / web_embedded)
     try:
-        with yt_dlp.YoutubeDL(stage1_opts) as ydl:
+        with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
-    except Exception:
-        pass
-
-    # Stage 2: Mobile Failover (mweb / android)
-    if not info:
-        try:
-            stage2_opts = dict(stage1_opts)
-            stage2_opts["extractor_args"] = {"youtube": {"player_client": ["mweb", "android"]}}
-            with yt_dlp.YoutubeDL(stage2_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-        except Exception:
-            pass
-
-    # Stage 3: Authenticated Web Fallback (with cookies if available)
-    if not info:
-        try:
-            stage3_opts = dict(stage1_opts)
-            stage3_opts["extractor_args"] = {"youtube": {"player_client": ["web", "web_creator"]}}
-            if _ck_file:
-                stage3_opts["cookiefile"] = _ck_file
-            with yt_dlp.YoutubeDL(stage3_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-        except Exception as exc:
-            err = classify_error(exc)
-            raise ValueError(err["message"]) from exc
+    except Exception as exc:
+        err = classify_error(exc)
+        raise ValueError(err["message"]) from exc
 
     if not info:
         raise ValueError("Could not extract video information from this URL.")
 
     # Build available video format list (deduplicated by height)
     # Map each detected height to the closest QUALITY_TIER format_id
-    # so the download endpoint uses the correct yt-dlp selector
     HEIGHT_TO_TIER = {
         2160: "4k",
         1440: "4k",
@@ -452,7 +424,6 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
     seen_heights: set = set()
     video_formats = []
 
-    # Find size of best audio stream to add to video-only streams
     best_audio_size = 0
     for f in raw_formats:
         vcodec = (f.get("vcodec") or "none").lower()
@@ -462,12 +433,11 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
             if sz > best_audio_size:
                 best_audio_size = sz
 
-    for fmt in reversed(raw_formats):  # reversed = highest quality first
+    for fmt in reversed(raw_formats):
         h = fmt.get("height")
         vcodec = fmt.get("vcodec", "none")
         acodec = (fmt.get("acodec") or "none").lower()
 
-        # Only proper video streams (not audio-only, not storyboards)
         if h and h > 0 and vcodec and vcodec not in ("none", None) and h not in seen_heights:
             seen_heights.add(h)
             label_suffix = ""
@@ -475,7 +445,6 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
             elif h >= 1080: label_suffix = " · Full HD"
             elif h >= 720:  label_suffix = " · HD"
 
-            # Map to nearest tier (for yt-dlp format selector)
             tier_id = "best_auto"
             for threshold in sorted(HEIGHT_TO_TIER.keys(), reverse=True):
                 if h >= threshold:
@@ -483,12 +452,11 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
                     break
 
             v_size = fmt.get("filesize") or fmt.get("filesize_approx") or 0
-            # If video-only format (acodec == 'none'), add audio size for accurate total size
             total_size = (v_size + best_audio_size) if (acodec in ("none", "") and v_size > 0) else (v_size or None)
 
             video_formats.append(
                 {
-                    "format_id": tier_id,   # ← uses correct selector on download
+                    "format_id": tier_id,
                     "label": f"{h}p{label_suffix}",
                     "ext": "mp4",
                     "height": h,
@@ -497,7 +465,6 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
                 }
             )
 
-    # Standard audio tiers (always appended)
     audio_formats = [
         {
             "format_id": "audio_best",
@@ -517,7 +484,6 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
         },
     ]
 
-    # If no specific video formats found, fall back to standard tiers
     if not video_formats:
         video_formats = [
             {"format_id": "best_auto", "label": "Best Available", "ext": "mp4", "height": None, "filesize": None, "is_audio": False},
@@ -526,11 +492,14 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
             {"format_id": "360p", "label": "360p", "ext": "mp4", "height": 360, "filesize": None, "is_audio": False},
         ]
 
+    content_type = detect_content_type(url, info)
+
     return {
         "title": info.get("title", "Unknown Title"),
         "thumbnail": info.get("thumbnail"),
         "duration": info.get("duration"),
         "platform": detect_platform(url),
+        "content_type": content_type,
         "webpage_url": info.get("webpage_url", url),
         "uploader": info.get("uploader") or info.get("channel", "Unknown"),
         "view_count": info.get("view_count"),
@@ -609,83 +578,29 @@ async def download_to_temp(
 
 # ---------------------------------------------------------------------------
 # Client-Side Redirect — Extract CDN URLs and return as JSON
-# The browser downloads directly from YouTube CDN — zero Render server bandwidth!
 # ---------------------------------------------------------------------------
 
 def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
     """
     Use yt-dlp to extract direct CDN streaming URLs for a video.
     Returns JSON with { video_url, audio_url, title, ext, needs_merge, filesize }.
-
-    The key innovation: the SERVER only extracts URLs (fast, ~1-2 sec).
-    The BROWSER then downloads directly from YouTube/Facebook CDN.
-    This means:
-      - Render server uses zero bandwidth for actual video transfer
-      - YouTube IP blocks don't affect actual download (user's IP is used)
-      - No server disk space consumed
     """
     url = normalize_url(url)
     tier = get_format_tier(format_id)
     is_audio = tier["is_audio"]
 
-    # Stage 1: Pure android_vr Cloud Bypass (no cookies, zero bot detection)
-    opts_s1 = {
+    opts = {
         "quiet":        True,
         "no_warnings":  True,
         "noplaylist":   True,
         "socket_timeout": 30,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["android_vr"],
-            }
-        },
-    }
-    if IMPERSONATE_TARGET:
-        opts_s1["impersonate"] = IMPERSONATE_TARGET
-
-    # Stage 2: Mobile Failover
-    opts_s2 = {
-        "quiet":        True,
-        "no_warnings":  True,
-        "noplaylist":   True,
-        "socket_timeout": 30,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["mweb", "android"],
-            }
-        },
     }
 
-    # Stage 3: Authenticated Web Fallback
-    opts_s3 = {
-        "quiet":        True,
-        "no_warnings":  True,
-        "noplaylist":   True,
-        "socket_timeout": 30,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["web", "web_creator"],
-            }
-        },
-    }
-
-    def _try_extract(client_opts: dict) -> Optional[dict]:
-        try:
-            with yt_dlp.YoutubeDL(client_opts) as ydl:
-                return ydl.extract_info(url, download=False)
-        except Exception:
-            return None
-
-    # Stage 1 attempt
-    info = _try_extract(opts_s1)
-
-    # Stage 2 attempt (mobile)
-    if not info:
-        info = _try_extract(opts_s2)
-
-    # Stage 3 attempt (cookies / web)
-    if not info:
-        info = _try_extract(opts_s3)
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except Exception:
+        raise ValueError("Could not extract video. The video may be unavailable or restricted.")
 
     if not info:
         raise ValueError("Could not extract video. The video may be unavailable or restricted.")
@@ -697,7 +612,6 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
 
     # ── Audio-only request ────────────────────────────────────────────────────
     if is_audio:
-        # Find best audio-only format with a direct URL
         best_audio = None
         best_abr   = 0
         for fmt in (info.get("formats") or []):
@@ -725,20 +639,14 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
         raise ValueError("No direct audio stream URL found for this video.")
 
     # ── Video request ─────────────────────────────────────────────────────────
-    # Get requested height cap from format_id
     height_caps = {
         "4k": 2160, "1080p": 1080, "720p": 720,
         "480p": 480, "360p": 360, "best_auto": 9999,
     }
     max_h = height_caps.get(format_id, 9999)
 
-    # Look for a combined (muxed) stream first — browser can download as-is
     best_muxed  = None
     best_mux_h  = 0
-    best_video  = None  # video-only
-    best_v_h    = 0
-    best_audio  = None  # audio-only companion
-    best_abr    = 0
 
     for fmt in (info.get("formats") or []):
         vcodec = (fmt.get("vcodec") or "none").lower()
@@ -749,23 +657,12 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
             continue
 
         has_video = vcodec not in ("none", "")
-        has_audio = acodec not in ("none", "")
 
-        if has_video and has_audio and h <= max_h and h > best_mux_h:
+        # Only look for single streams with video (muxed video+audio or just video)
+        if has_video and h <= max_h and h > best_mux_h:
             best_mux_h  = h
             best_muxed  = fmt
 
-        if has_video and not has_audio and h <= max_h and h > best_v_h:
-            best_v_h   = h
-            best_video = fmt
-
-        if not has_video and has_audio:
-            abr = fmt.get("abr") or 0
-            if abr > best_abr:
-                best_abr   = abr
-                best_audio = fmt
-
-    # ── Case 1: Combined (muxed) stream — browser downloads directly ──────────
     if best_muxed:
         return {
             "title":       title,
@@ -779,30 +676,11 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
             "filesize":    best_muxed.get("filesize") or best_muxed.get("filesize_approx"),
         }
 
-    # ── Case 2: Separate DASH streams — return both URLs to frontend ──────────
-    # Frontend will download video + audio separately, then use ffmpeg.wasm or
-    # simply offer the video-only stream with a note.
-    if best_video:
-        v_size = best_video.get("filesize") or best_video.get("filesize_approx") or 0
-        a_size = (best_audio.get("filesize") or best_audio.get("filesize_approx") or 0) if best_audio else 0
-        return {
-            "title":       title,
-            "thumbnail":   thumbnail,
-            "duration":    duration,
-            "platform":    platform,
-            "ext":         best_video.get("ext", "mp4"),
-            "needs_merge": True,   # Frontend uses /api/stream for merging
-            "video_url":   best_video["url"],
-            "audio_url":   best_audio["url"] if best_audio else None,
-            "video_height": best_v_h,
-            "filesize":    (v_size + a_size) or None,
-        }
-
     raise ValueError("No downloadable video stream found for this URL and quality.")
 
 
-
-# Live Streaming — FFmpeg Pipeline (instant browser dialog, no server storage)
+# ---------------------------------------------------------------------------
+# Live Streaming — FFmpeg Pipeline
 # ---------------------------------------------------------------------------
 
 def _get_direct_urls_sync(
@@ -826,37 +704,16 @@ def _get_direct_urls_sync(
         "noplaylist":   True,
         "socket_timeout": 30,
         "http_headers": {"User-Agent": _UA},
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["android_vr", "web_embedded", "mweb", "android", "web"],
-            }
-        },
     }
     if cookies_file and os.path.isfile(cookies_file):
         opts["cookiefile"] = cookies_file
-    elif COOKIES_PATH.exists() and COOKIES_PATH.is_file():
-        opts["cookiefile"] = str(COOKIES_PATH)
 
     with yt_dlp.YoutubeDL(opts) as ydl:
         try:
             info = ydl.extract_info(url, download=False)
         except Exception as exc:
-            if "facebook.com" in url.lower() and "m.facebook.com" not in url.lower():
-                alt_url = re.sub(r"https?://(www\.|web\.)?facebook\.com", "https://m.facebook.com", url, flags=re.IGNORECASE)
-                try:
-                    info = ydl.extract_info(alt_url, download=False)
-                except Exception as alt_exc:
-                    err = classify_error(alt_exc)
-                    raise ValueError(err["message"]) from alt_exc
-            else:
-                try:
-                    alt_opts = dict(opts)
-                    alt_opts["extractor_args"] = {"youtube": {"player_client": ["tv", "mweb", "web"]}}
-                    with yt_dlp.YoutubeDL(alt_opts) as alt_ydl:
-                        info = alt_ydl.extract_info(url, download=False)
-                except Exception as alt_exc:
-                    err = classify_error(alt_exc)
-                    raise ValueError(err["message"]) from alt_exc
+            err = classify_error(exc)
+            raise ValueError(err["message"]) from exc
 
     if not info:
         raise ValueError("Could not extract stream URLs.")
@@ -963,10 +820,6 @@ async def stream_via_ffmpeg(
     1. 'separate'  : Two inputs (video URL + audio URL) → merged fragmented MP4
     2. 'single'    : One pre-muxed input → re-mux to fragmented MP4
     3. 'audio'     : One audio input → convert to MP3
-
-    Uses -movflags frag_keyframe+empty_moov so the browser can start the
-    download immediately without knowing the total file size.
-    Streams in 64-KB chunks.
     """
     ffmpeg_bin = find_ffmpeg() or "ffmpeg"
     mode       = stream_info.get("mode", "single")
@@ -978,8 +831,6 @@ async def stream_via_ffmpeg(
         a_hdrs = _headers_str(stream_info.get("audio_headers", {"User-Agent": _UA}))
         vcodec = stream_info.get("vcodec", "")
 
-        # If video codec is H.264 (avc1), copy video directly.
-        # If video codec is VP9/AV1, re-encode video to libx264 fast to guarantee MP4 compatibility
         v_encoder = ["-c:v", "copy"] if ("avc" in vcodec or "h264" in vcodec) else ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "23"]
 
         reconnect_opts = [
@@ -992,29 +843,23 @@ async def stream_via_ffmpeg(
         cmd = [
             ffmpeg_bin,
             "-loglevel",  "error",
-            # Video input
             *reconnect_opts,
             "-headers",   v_hdrs,
             "-i",         v_url,
-            # Audio input
             *reconnect_opts,
             "-headers",   a_hdrs,
             "-i",         a_url,
-            # Explicit stream mapping: stream 0:v (video) and stream 1:a (audio)
             "-map",       "0:v:0",
             "-map",       "1:a:0",
-            # Encoding
             *v_encoder,
             "-c:a",       "aac",
             "-b:a",       "192k",
-            # Fragmented MP4 for immediate browser download streaming
             "-movflags",  "frag_keyframe+empty_moov+default_base_moof",
             "-f",         "mp4",
             "pipe:1",
         ]
 
     elif mode == "audio":
-        # ── Convert audio stream to MP3 ──────────────────────────────────────
         s_url  = stream_info["single_url"]
         s_hdrs = _headers_str(stream_info.get("single_headers", {"User-Agent": _UA}))
         reconnect_opts = [
@@ -1030,15 +875,14 @@ async def stream_via_ffmpeg(
             *reconnect_opts,
             "-headers",   s_hdrs,
             "-i",         s_url,
-            "-vn",                       # drop video (if any)
+            "-vn",
             "-c:a",       "libmp3lame",
-            "-q:a",       "2",           # VBR ~190 kbps
+            "-q:a",       "2",
             "-f",         "mp3",
             "pipe:1",
         ]
 
     else:
-        # ── Re-mux pre-muxed stream to fragmented MP4 ────────────────────────
         s_url  = stream_info["single_url"]
         s_hdrs = _headers_str(stream_info.get("single_headers", {"User-Agent": _UA}))
         reconnect_opts = [
@@ -1060,7 +904,6 @@ async def stream_via_ffmpeg(
             "pipe:1",
         ]
 
-    # ── Run FFmpeg with standard subprocess.Popen to prevent Windows asyncio NotImplementedError ──
     creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
     process = subprocess.Popen(
         cmd,
@@ -1071,7 +914,7 @@ async def stream_via_ffmpeg(
 
     try:
         while True:
-            chunk = await asyncio.to_thread(process.stdout.read, 65536)   # 64 KB
+            chunk = await asyncio.to_thread(process.stdout.read, 65536)
             if not chunk:
                 break
             yield chunk

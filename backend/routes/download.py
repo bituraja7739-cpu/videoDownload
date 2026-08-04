@@ -33,9 +33,9 @@ router = APIRouter(tags=["Download"])
 # GET /api/get-links  ← PRIMARY ENDPOINT (Cloud-Safe, Zero Server Bandwidth)
 #
 # Architecture:
-#   1. yt-dlp extracts direct CDN video/audio URLs from YouTube/Facebook/Instagram
+#   1. yt-dlp extracts direct CDN video/audio URLs from Facebook/Instagram
 #   2. Returns { video_url, audio_url, title, ext } JSON to the frontend
-#   3. Browser downloads directly from YouTube CDN — Render server transfers 0 bytes
+#   3. Browser downloads directly from the CDN — Render server transfers 0 bytes
 #   4. Completely bypasses Render IP blocks since the actual download comes from
 #      the USER's IP address, not the server's IP!
 # ─────────────────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ async def get_download_links(
     """
     Extract direct CDN download URLs for a video and return as JSON.
     The browser then downloads directly from the CDN — zero server bandwidth used.
-    This completely avoids YouTube IP blocks on cloud servers like Render.
+    This completely avoids IP blocks on cloud servers like Render.
     """
     if not url:
         raise HTTPException(status_code=400, detail="URL is required.")

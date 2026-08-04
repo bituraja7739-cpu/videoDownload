@@ -17,6 +17,7 @@ const vidThumb     = document.getElementById('vid-thumb');
 const vidDuration  = document.getElementById('vid-duration');
 const vidPlatform  = document.getElementById('vid-platform');
 const vidTitle     = document.getElementById('vid-title');
+const vidContentType = document.getElementById('vid-content-type');
 const vidUploader  = document.getElementById('vid-uploader');
 const vidViews     = document.getElementById('vid-views');
 
@@ -63,14 +64,13 @@ function fmtSize(bytes) {
 }
 
 function detectPlatform(url) {
-  if (/youtube\.com|youtu\.be/i.test(url))           return 'youtube';
   if (/instagram\.com/i.test(url))                   return 'instagram';
   if (/facebook\.com|fb\.com|fb\.watch/i.test(url))  return 'facebook';
   return 'unknown';
 }
 
 function platformTagClass(p) {
-  return { youtube: 'tag-youtube', instagram: 'tag-instagram', facebook: 'tag-facebook' }[p] || 'tag-unknown';
+  return { instagram: 'tag-instagram', facebook: 'tag-facebook' }[p] || 'tag-unknown';
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -97,15 +97,34 @@ function setAnalyzing(v) {
 }
 
 function highlightTab(url) {
-  ['tab-yt', 'tab-ig', 'tab-fb'].forEach(id => document.getElementById(id).classList.remove('active'));
-  const map = { youtube: 'tab-yt', instagram: 'tab-ig', facebook: 'tab-fb' };
+  ['tab-ig', 'tab-fb'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.classList.remove('active');
+  });
+  const map = { instagram: 'tab-ig', facebook: 'tab-fb' };
   const p = detectPlatform(url);
-  if (map[p]) document.getElementById(map[p]).classList.add('active');
+  if (map[p]) {
+    const el = document.getElementById(map[p]);
+    if (el) el.classList.add('active');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
-// Quality Badges & Table
+// Content Type & Quality Badges & Table
 // ─────────────────────────────────────────────────────────────
+function contentTypeBadge(type) {
+  if (!type) return '';
+  const map = {
+    'reel': { icon: '🎬', label: 'Reel' },
+    'story': { icon: '📱', label: 'Story' },
+    'photo': { icon: '📷', label: 'Photo' },
+    'video': { icon: '▶️', label: 'Video' },
+    'carousel': { icon: '🎠', label: 'Carousel' }
+  };
+  const t = map[type.toLowerCase()];
+  if (!t) return '';
+  return `<span class="tag-${type.toLowerCase()}">${t.icon} ${t.label}</span>`;
+}
 function qualityBadge(fmt) {
   if (fmt.is_audio) {
     return `<span class="qual-badge">
@@ -191,6 +210,13 @@ async function analyzeUrl(url) {
     vidPlatform.textContent = plat.charAt(0).toUpperCase() + plat.slice(1);
     vidPlatform.className   = `platform-tag ${platformTagClass(plat)}`;
 
+    if (d.content_type && vidContentType) {
+      vidContentType.innerHTML = contentTypeBadge(d.content_type);
+      vidContentType.style.display = 'inline-block';
+    } else if (vidContentType) {
+      vidContentType.style.display = 'none';
+    }
+
     buildTable(d.formats || []);
 
     loadingBox.hidden  = true;
@@ -204,13 +230,7 @@ async function analyzeUrl(url) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Trigger Download — Client-Side Redirect Architecture
-//
-// Flow:
-//   1. Call /api/get-links → get direct YouTube CDN URL
-//   2a. needs_merge=false → <a href="CDN_URL" download> → browser downloads
-//       directly from YouTube. Render server sends ZERO bytes. No IP blocks!
-//   2b. needs_merge=true  → fall back to /api/stream (FFmpeg merge on server)
+// Trigger Download
 // ─────────────────────────────────────────────────────────────
 async function triggerChromeDownload(formatId, btnEl) {
   if (!currentUrl) return;
@@ -255,11 +275,10 @@ async function triggerChromeDownload(formatId, btnEl) {
       a.remove();
 
     } else {
-      // Step 2a: Muxed stream — browser downloads DIRECTLY from YouTube CDN!
-      // Render server sends ZERO bytes. No IP blocks possible!
-      dlStatusText.textContent = '⬇ Download started from CDN directly!';
+      // Step 2a: Muxed stream — direct download
+      dlStatusText.textContent = '⬇ Download started directly!';
       dlBarFill.style.width    = '100%';
-      dlSpeed.textContent = '✅ Downloading directly from YouTube CDN — your browser handles it!';
+      dlSpeed.textContent = '✅ Downloading directly — your browser handles it!';
 
       const ext  = data.ext || 'mp4';
       const name = `${(data.title || 'video').replace(/[\\/*?:"<>|]/g, '_')}.${ext}`;

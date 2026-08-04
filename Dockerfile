@@ -1,4 +1,4 @@
-# Dockerfile for VidSnap — FastAPI + yt-dlp + FFmpeg + curl_cffi
+# Dockerfile for VidSnap — FastAPI + yt-dlp + FFmpeg
 
 FROM python:3.11-slim
 
@@ -7,15 +7,12 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 
-# Install FFmpeg, Node.js (for YouTube JS challenge solver), build tools for curl_cffi, and system dependencies
+# Install FFmpeg, Node.js, and system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     nodejs \
     ca-certificates \
     curl \
-    gcc \
-    libffi-dev \
-    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -30,5 +27,5 @@ COPY . .
 # Expose port
 EXPOSE 8000
 
-# Run Gunicorn with Uvicorn worker (binds dynamically to $PORT for Render/Railway/Koyeb)
+# Run Gunicorn with Uvicorn worker
 CMD ["sh", "-c", "gunicorn -w 2 -k uvicorn.workers.UvicornWorker backend.main:app --bind 0.0.0.0:${PORT:-8000}"]

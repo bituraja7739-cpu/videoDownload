@@ -7,7 +7,6 @@
   --brand:        #0085CF;
   --brand-2:      #01C5C9;
   --brand-grad:   linear-gradient(135deg, #0085CF 0%, #01C5C9 100%);
-  --red:          #FF0000;
   --green:        #00E553;
   --bg-dark:      #1a1f2e;
   --bg-page:      #F5F6FA;
@@ -320,10 +319,25 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   letter-spacing: 0.5px;
   width: fit-content;
 }
-.tag-youtube   { background: #fff0f0; color: #c53030; border: 1px solid #feb2b2; }
 .tag-instagram { background: #fff5ee; color: #c05621; border: 1px solid #fbd38d; }
 .tag-facebook  { background: #ebf4ff; color: #2b6cb0; border: 1px solid #bee3f8; }
 .tag-unknown   { background: var(--bg-page); color: var(--text-muted); border: 1px solid var(--border); }
+
+/* Content Type Badges */
+.content-type-badge span {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.tag-reel { background: #fff0f6; color: #d53f8c; border: 1px solid #fed7e2; }
+.tag-story { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+.tag-photo { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+.tag-video { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+.tag-carousel { background: #faf5ff; color: #7c3aed; border: 1px solid #ddd6fe; }
 
 .vid-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); line-height: 1.4; }
 .vid-uploader { font-size: 0.85rem; color: var(--text-sec); }

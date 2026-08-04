@@ -24,7 +24,7 @@ async def analyze_url(req: AnalyzeRequest):
     Extract video metadata and return available quality formats.
 
     Body:
-        url (str): The media URL (YouTube / Instagram / Facebook).
+        url (str): The media URL (Instagram / Facebook).
         cookies_file (str, optional): Path to a Netscape cookies.txt file.
 
     Returns:

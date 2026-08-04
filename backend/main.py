@@ -40,12 +40,11 @@ async def lifespan(app: FastAPI):
     ffmpeg_ok = check_ffmpeg()
     ytdlp_ver = get_ytdlp_version()
 
-    from .downloader import IMPERSONATE_TARGET
+    from .downloader import check_ffmpeg, get_ytdlp_version
     logger.info("=" * 50)
     logger.info("  VidSnap started")
     logger.info(f"  yt-dlp version  : {ytdlp_ver}")
     logger.info(f"  FFmpeg found    : {'✓' if ffmpeg_ok else '✗  (MP3/merged downloads may fail)'}")
-    logger.info(f"  TLS Impersonate : {'✓ ' + str(IMPERSONATE_TARGET) if IMPERSONATE_TARGET else '✗  (curl_cffi not loaded)'}")
     logger.info(f"  Temp dir        : {TEMP_DIR}")
     logger.info("=" * 50)
 
@@ -73,7 +72,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="VidSnap",
-    description="Multi-platform video & audio downloader (YouTube · Instagram · Facebook)",
+    description="Instagram & Facebook Downloader — Reels, Stories, Photos & Videos",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/api/docs",

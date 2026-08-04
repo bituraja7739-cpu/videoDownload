@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>VidSnap — Free Video Downloader | YouTube, Instagram, Facebook</title>
-  <meta name="description" content="Download YouTube, Instagram and Facebook videos free in HD, 1080p, 4K or MP3. Fast, free, no registration needed."/>
+  <title>VidSnap — Free Instagram & Facebook Downloader | Reels, Stories, Photos</title>
+  <meta name="description" content="Download Instagram & Facebook Reels, Stories, Photos and Videos for free. Fast, high quality, no registration needed."/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -23,17 +23,6 @@
     </a>
     <nav class="nav" aria-label="Main navigation">
       <a href="/" class="nav-link active">Home</a>
-      <div class="nav-group">
-        <button class="nav-link nav-dropdown-btn" aria-expanded="false" aria-haspopup="true">
-          YouTube <svg viewBox="0 0 12 12" fill="currentColor" class="chevron" aria-hidden="true"><path d="M6 8L2 4h8L6 8z"/></svg>
-        </button>
-        <div class="dropdown-menu" role="menu">
-          <a href="/" class="dropdown-item" role="menuitem">YouTube Video Downloader</a>
-          <a href="/" class="dropdown-item" role="menuitem">YouTube to MP3</a>
-          <a href="/" class="dropdown-item" role="menuitem">YouTube to MP4</a>
-          <a href="/" class="dropdown-item" role="menuitem">YouTube Shorts</a>
-        </div>
-      </div>
       <a href="/" class="nav-link">Instagram</a>
       <a href="/" class="nav-link">Facebook</a>
     </nav>
@@ -43,8 +32,8 @@
 <!-- HERO SECTION -->
 <section class="hero" aria-labelledby="hero-title">
   <div class="container">
-    <h1 id="hero-title" class="hero-title">YouTube Video Downloader</h1>
-    <p class="hero-sub">Download YouTube Videos Online Free</p>
+    <h1 id="hero-title" class="hero-title">Instagram & Facebook Downloader</h1>
+    <p class="hero-sub">Download Reels, Stories, Photos & Videos for Free</p>
 
     <!-- Search Box -->
     <form class="search-box" id="search-form" role="search" aria-label="Video URL search">
@@ -56,7 +45,7 @@
           type="url"
           id="url-input"
           class="search-input"
-          placeholder="Paste YouTube / Instagram / Facebook link here..."
+          placeholder="Paste Instagram or Facebook link here..."
           autocomplete="off"
           spellcheck="false"
           aria-label="Video link"
@@ -70,10 +59,6 @@
 
       <!-- Platform tabs -->
       <div class="platform-tabs" aria-label="Supported platforms">
-        <span class="ptab ptab-yt" id="tab-yt">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#FF0000" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-          YouTube
-        </span>
         <span class="ptab ptab-ig" id="tab-ig">
           <svg viewBox="0 0 24 24" aria-hidden="true"><defs><radialGradient id="ig-h" cx="30%" cy="107%" r="150%"><stop offset="0%" stop-color="#fdf497"/><stop offset="45%" stop-color="#fd5949"/><stop offset="90%" stop-color="#285AEB"/></radialGradient></defs><path fill="url(#ig-h)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
           Instagram
@@ -116,7 +101,10 @@
           <span id="vid-duration" class="dur-badge"></span>
         </div>
         <div class="vid-meta">
-          <span id="vid-platform" class="platform-tag"></span>
+          <div class="tags-row" style="display: flex; gap: 8px; margin-bottom: 4px;">
+            <span id="vid-platform" class="platform-tag"></span>
+            <span id="vid-content-type" class="content-type-badge"></span>
+          </div>
           <h2 id="vid-title" class="vid-title"></h2>
           <p id="vid-uploader" class="vid-uploader"></p>
           <p id="vid-views" class="vid-views"></p>
@@ -166,7 +154,7 @@
       <div class="step-card">
         <div class="step-num">1</div>
         <h3>Copy the Link</h3>
-        <p>Go to YouTube, Instagram, or Facebook. Copy the video URL from your browser or share button.</p>
+        <p>Go to Instagram or Facebook. Copy the link of the Reel, Story, Photo, or Video from your browser or share button.</p>
       </div>
       <div class="step-card">
         <div class="step-num">2</div>
@@ -191,22 +179,22 @@
         <div class="feat-icon" style="background:#FFF3F3">
           <svg viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         </div>
-        <h3>Full Quality</h3>
-        <p>Download in 4K, 1080p, 720p, 480p, 360p, or extract best-quality MP3 audio.</p>
+        <h3>Reels & Stories</h3>
+        <p>Download Instagram Reels, Facebook Reels & Stories directly to your device.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon" style="background:#F0FFF4">
           <svg viewBox="0 0 24 24" fill="none" stroke="#38a169" stroke-width="2" aria-hidden="true"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
         </div>
-        <h3>3 Platforms</h3>
-        <p>YouTube, Instagram Reels, and Facebook videos — all supported in one tool.</p>
+        <h3>Photos & Videos</h3>
+        <p>High quality photos, videos, and carousel albums from Instagram and Facebook.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon" style="background:#EBF8FF">
           <svg viewBox="0 0 24 24" fill="none" stroke="#3182ce" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         </div>
         <h3>100% Free</h3>
-        <p>No registration, no hidden fees, no app install required. Completely free forever.</p>
+        <p>No registration, no watermark, no app install required. Completely free forever.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon" style="background:#FFFAF0">
