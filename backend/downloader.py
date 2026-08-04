@@ -657,44 +657,46 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
     }
     max_h = height_caps.get(format_id, 9999)
 
-    best_muxed  = None  # Has BOTH video AND audio
+    best_muxed  = None  # Direct CDN stream (video+audio embedded)
     best_mux_h  = 0
-    best_video  = None  # Highest video stream (may need audio merge)
+    best_video  = None  # Separate DASH video stream
     best_v_h    = 0
-    best_audio  = None  # Best separate audio stream
+    best_audio  = None  # Separate DASH audio stream
     best_abr    = 0
 
     formats_list = info.get("formats") or []
 
     for fmt in formats_list:
-        vcodec = (fmt.get("vcodec") or "none").lower()
-        acodec = (fmt.get("acodec") or "none").lower()
+        vcodec = (fmt.get("vcodec") or "").lower()
+        acodec = (fmt.get("acodec") or "").lower()
+        fid    = str(fmt.get("format_id", "")).lower()
         h      = fmt.get("height") or 0
         direct = fmt.get("url", "")
         if not direct.startswith("http"):
             continue
 
-        has_video = vcodec not in ("none", "")
-        has_audio = acodec not in ("none", "")
+        is_pure_video_only = (acodec == "none" and vcodec not in ("none", "")) and ("dash" in fid or "video" in fid)
+        is_pure_audio_only = (vcodec in ("none", "") and acodec not in ("none", "")) or ("audio" in fid and vcodec in ("none", ""))
 
-        # 1. True muxed format: MUST HAVE BOTH VIDEO AND AUDIO
-        if has_video and has_audio and h <= max_h and h > best_mux_h:
-            best_mux_h = h
-            best_muxed = fmt
+        # 1. Muxed format (has audio embedded or is standard Instagram/FB video stream)
+        if not is_pure_video_only and not is_pure_audio_only:
+            if h <= max_h and h >= best_mux_h:
+                best_mux_h = h
+                best_muxed = fmt
 
-        # 2. Best video stream (within height limit)
-        if has_video and h <= max_h and h > best_v_h:
+        # 2. Pure DASH video stream (if DASH separate streams used)
+        if is_pure_video_only and h <= max_h and h >= best_v_h:
             best_v_h   = h
             best_video = fmt
 
-        # 3. Best audio stream
-        if not has_video and has_audio:
+        # 3. Pure DASH audio stream
+        if is_pure_audio_only:
             abr = fmt.get("abr") or 0
-            if abr > best_abr:
+            if abr >= best_abr:
                 best_abr   = abr
                 best_audio = fmt
 
-    # Case 1: Combined video+audio stream exists -> Direct download WITH SOUND
+    # Case 1: Direct CDN stream (Instagram/Facebook native combined video+audio) -> MAXIMUM SPEED & FULL DURATION
     if best_muxed:
         return {
             "title":       title,
@@ -708,28 +710,8 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
             "filesize":    best_muxed.get("filesize") or best_muxed.get("filesize_approx"),
         }
 
-    # Case 2: Separate video stream -> Merges audio using FFmpeg if video has no audio
-    if best_video:
-        v_acodec = (best_video.get("acodec") or "none").lower()
-        v_has_audio = v_acodec not in ("none", "")
-
-        v_size = best_video.get("filesize") or best_video.get("filesize_approx") or 0
-        a_size = (best_audio.get("filesize") or best_audio.get("filesize_approx") or 0) if best_audio else 0
-
-        return {
-            "title":       title,
-            "thumbnail":   thumbnail,
-            "duration":    duration,
-            "platform":    platform,
-            "ext":         best_video.get("ext", "mp4"),
-            "needs_merge": not v_has_audio and best_audio is not None,
-            "video_url":   best_video["url"],
-            "audio_url":   best_audio["url"] if (not v_has_audio and best_audio) else None,
-            "filesize":    (v_size + a_size) or None,
-        }
-
-    # Case 3: Fallback for single top-level URL
-    if info.get("url"):
+    # Case 2: Top-level single media URL (e.g. Instagram Reels direct CDN URL) -> MAXIMUM SPEED & FULL DURATION
+    if info.get("url") and info["url"].startswith("http"):
         return {
             "title":       title,
             "thumbnail":   thumbnail,
@@ -740,6 +722,23 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
             "video_url":   info["url"],
             "audio_url":   None,
             "filesize":    info.get("filesize") or info.get("filesize_approx"),
+        }
+
+    # Case 3: Separate DASH video + audio streams -> Needs FFmpeg merge
+    if best_video:
+        v_size = best_video.get("filesize") or best_video.get("filesize_approx") or 0
+        a_size = (best_audio.get("filesize") or best_audio.get("filesize_approx") or 0) if best_audio else 0
+
+        return {
+            "title":       title,
+            "thumbnail":   thumbnail,
+            "duration":    duration,
+            "platform":    platform,
+            "ext":         best_video.get("ext", "mp4"),
+            "needs_merge": best_audio is not None,
+            "video_url":   best_video["url"],
+            "audio_url":   best_audio["url"] if best_audio else None,
+            "filesize":    (v_size + a_size) or None,
         }
 
     raise ValueError("No downloadable video stream found for this URL and quality.")
@@ -897,7 +896,7 @@ async def stream_via_ffmpeg(
         a_hdrs = _headers_str(stream_info.get("audio_headers", {"User-Agent": _UA}))
         vcodec = stream_info.get("vcodec", "")
 
-        v_encoder = ["-c:v", "copy"] if ("avc" in vcodec or "h264" in vcodec) else ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "23"]
+        v_encoder = ["-c:v", "copy"]
 
         reconnect_opts = [
             "-reconnect", "1",
