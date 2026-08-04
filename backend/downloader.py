@@ -630,13 +630,25 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
                 "thumbnail":   thumbnail,
                 "duration":    duration,
                 "platform":    platform,
-                "ext":         "webm",          # audio stream
+                "ext":         "mp3",
                 "needs_merge": False,
                 "video_url":   best_audio["url"],
                 "audio_url":   None,
                 "filesize":    best_audio.get("filesize") or best_audio.get("filesize_approx"),
             }
-        raise ValueError("No direct audio stream URL found for this video.")
+
+        # Fallback for MP3 extraction via server stream
+        return {
+            "title":       title,
+            "thumbnail":   thumbnail,
+            "duration":    duration,
+            "platform":    platform,
+            "ext":         "mp3",
+            "needs_merge": True,
+            "video_url":   info.get("url", ""),
+            "audio_url":   None,
+            "filesize":    None,
+        }
 
     # ── Video request ─────────────────────────────────────────────────────────
     height_caps = {
@@ -645,10 +657,16 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
     }
     max_h = height_caps.get(format_id, 9999)
 
-    best_muxed  = None
+    best_muxed  = None  # Has BOTH video AND audio
     best_mux_h  = 0
+    best_video  = None  # Highest video stream (may need audio merge)
+    best_v_h    = 0
+    best_audio  = None  # Best separate audio stream
+    best_abr    = 0
 
-    for fmt in (info.get("formats") or []):
+    formats_list = info.get("formats") or []
+
+    for fmt in formats_list:
         vcodec = (fmt.get("vcodec") or "none").lower()
         acodec = (fmt.get("acodec") or "none").lower()
         h      = fmt.get("height") or 0
@@ -657,12 +675,26 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
             continue
 
         has_video = vcodec not in ("none", "")
+        has_audio = acodec not in ("none", "")
 
-        # Only look for single streams with video (muxed video+audio or just video)
-        if has_video and h <= max_h and h > best_mux_h:
-            best_mux_h  = h
-            best_muxed  = fmt
+        # 1. True muxed format: MUST HAVE BOTH VIDEO AND AUDIO
+        if has_video and has_audio and h <= max_h and h > best_mux_h:
+            best_mux_h = h
+            best_muxed = fmt
 
+        # 2. Best video stream (within height limit)
+        if has_video and h <= max_h and h > best_v_h:
+            best_v_h   = h
+            best_video = fmt
+
+        # 3. Best audio stream
+        if not has_video and has_audio:
+            abr = fmt.get("abr") or 0
+            if abr > best_abr:
+                best_abr   = abr
+                best_audio = fmt
+
+    # Case 1: Combined video+audio stream exists -> Direct download WITH SOUND
     if best_muxed:
         return {
             "title":       title,
@@ -674,6 +706,40 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
             "video_url":   best_muxed["url"],
             "audio_url":   None,
             "filesize":    best_muxed.get("filesize") or best_muxed.get("filesize_approx"),
+        }
+
+    # Case 2: Separate video stream -> Merges audio using FFmpeg if video has no audio
+    if best_video:
+        v_acodec = (best_video.get("acodec") or "none").lower()
+        v_has_audio = v_acodec not in ("none", "")
+
+        v_size = best_video.get("filesize") or best_video.get("filesize_approx") or 0
+        a_size = (best_audio.get("filesize") or best_audio.get("filesize_approx") or 0) if best_audio else 0
+
+        return {
+            "title":       title,
+            "thumbnail":   thumbnail,
+            "duration":    duration,
+            "platform":    platform,
+            "ext":         best_video.get("ext", "mp4"),
+            "needs_merge": not v_has_audio and best_audio is not None,
+            "video_url":   best_video["url"],
+            "audio_url":   best_audio["url"] if (not v_has_audio and best_audio) else None,
+            "filesize":    (v_size + a_size) or None,
+        }
+
+    # Case 3: Fallback for single top-level URL
+    if info.get("url"):
+        return {
+            "title":       title,
+            "thumbnail":   thumbnail,
+            "duration":    duration,
+            "platform":    platform,
+            "ext":         info.get("ext", "mp4"),
+            "needs_merge": False,
+            "video_url":   info["url"],
+            "audio_url":   None,
+            "filesize":    info.get("filesize") or info.get("filesize_approx"),
         }
 
     raise ValueError("No downloadable video stream found for this URL and quality.")
