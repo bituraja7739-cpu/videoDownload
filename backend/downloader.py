@@ -1004,3 +1004,9 @@ def cleanup_job(job_id: str) -> None:
     if job_dir.exists():
         shutil.rmtree(job_dir, ignore_errors=True)
     progress_store.pop(job_id, None)
+
+    # Prune old progress_store entries if dictionary grows larger than 50
+    if len(progress_store) > 50:
+        keys_to_remove = list(progress_store.keys())[:25]
+        for k in keys_to_remove:
+            progress_store.pop(k, None)

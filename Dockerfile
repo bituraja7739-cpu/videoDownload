@@ -27,5 +27,8 @@ COPY . .
 # Expose port
 EXPOSE 8000
 
-# Run Gunicorn with Uvicorn worker
-CMD ["sh", "-c", "gunicorn -w 2 -k uvicorn.workers.UvicornWorker backend.main:app --bind 0.0.0.0:${PORT:-8000}"]
+# Run Gunicorn optimized for 512MB memory limit on Render Free Tier:
+# -w 1 (single worker process keeps RAM < 200MB)
+# --threads 4 (handles concurrent requests safely)
+# --max-requests 200 (automatically recycles worker memory to prevent leaks)
+CMD ["sh", "-c", "gunicorn -w 1 --threads 4 --max-requests 200 --max-requests-jitter 20 -k uvicorn.workers.UvicornWorker backend.main:app --bind 0.0.0.0:${PORT:-8000}"]
