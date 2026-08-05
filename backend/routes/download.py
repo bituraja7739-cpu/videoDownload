@@ -74,38 +74,38 @@ async def proxy_download(
     ext:   str = Query("mp4", description="File extension"),
 ):
     """
-    Proxies direct CDN media URL with Content-Disposition: attachment header.
-    Forces browser to trigger AUTO FILE DOWNLOAD directly to disk instead of opening in a new tab.
+    Proxies direct CDN media URL with clean Content-Disposition: attachment header.
+    Forces browser to trigger AUTO FILE DOWNLOAD directly to disk without header errors.
     """
     if not url:
         raise HTTPException(status_code=400, detail="URL is required.")
 
-    import requests
+    import urllib.request
 
-    raw_title = title.strip() or "video"
-    clean_title = re.sub(r'[\\/*?:"<>|]', '_', raw_title)[:80].strip() or "video"
-    ascii_name  = f"{clean_title}.{ext}"
-    utf8_name   = quote(f"{raw_title}.{ext}")
-    content_disposition = f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{utf8_name}'
+    # Sanitize title to safe compact ASCII filename (removes URLs, hashtags, emojis, quotes)
+    safe_title = re.sub(r'https?://\S+', '', title)
+    safe_title = re.sub(r'#\S+', '', safe_title)
+    safe_title = re.sub(r'[^a-zA-Z0-9_\-\s]', '', safe_title).strip()
+    safe_title = re.sub(r'\s+', '_', safe_title)[:40].strip('_') or "vidsnap_media"
+    filename   = f"{safe_title}.{ext}"
+
+    req_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "*/*",
+    }
 
     try:
-        req = requests.get(
-            url,
-            stream=True,
-            timeout=30,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch CDN stream: {exc}")
+        req  = urllib.request.Request(url, headers=req_headers)
+        resp = urllib.request.urlopen(req, timeout=20)
+    except Exception:
+        # Fallback: Redirect directly to CDN URL if stream connection fails
+        return RedirectResponse(url=url)
 
-    if req.status_code >= 400:
-        raise HTTPException(status_code=req.status_code, detail="CDN stream returned error.")
-
-    media_type = req.headers.get("Content-Type", "video/mp4")
-    content_length = req.headers.get("Content-Length")
+    content_length = resp.headers.get("Content-Length")
+    media_type     = "audio/mpeg" if ext == "mp3" else "video/mp4"
 
     headers = {
-        "Content-Disposition": content_disposition,
+        "Content-Disposition": f'attachment; filename="{filename}"',
         "Content-Type": media_type,
         "X-Accel-Buffering": "no",
         "Cache-Control": "no-cache",
@@ -113,15 +113,20 @@ async def proxy_download(
     if content_length:
         headers["Content-Length"] = content_length
 
-    def iter_chunks():
+    def iter_stream():
         try:
-            for chunk in req.iter_content(chunk_size=65536):
-                if chunk:
-                    yield chunk
+            while True:
+                chunk = resp.read(65536)
+                if not chunk:
+                    break
+                yield chunk
         finally:
-            req.close()
+            try:
+                resp.close()
+            except Exception:
+                pass
 
-    return StreamingResponse(iter_chunks(), media_type=media_type, headers=headers)
+    return StreamingResponse(iter_stream(), media_type=media_type, headers=headers)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
