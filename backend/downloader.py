@@ -38,54 +38,54 @@ PLATFORM_PATTERNS = {
     "facebook": re.compile(r"(facebook\.com|fb\.com|fb\.watch)", re.IGNORECASE),
 }
 
-# Quality tier definitions — ordered best-to-worst
+# Quality tier definitions — ordered best-to-worst (prioritizing H.264 / AVC1 for 100% Windows/iOS player compatibility)
 QUALITY_TIERS = [
     {
         "format_id": "best_auto",
         "label": "Best (Auto)",
-        "selector": "bestvideo+bestaudio/b/best",
+        "selector": "bestvideo[vcodec^=avc1]+bestaudio/bestvideo[vcodec^=h264]+bestaudio/bestvideo+bestaudio/b/best",
         "is_audio": False,
     },
     {
         "format_id": "4k",
         "label": "4K (2160p)",
-        "selector": "bestvideo[height<=2160]+bestaudio/bestvideo[height<=2160]/b/best",
+        "selector": "bestvideo[height<=2160][vcodec^=avc1]+bestaudio/bestvideo[height<=2160]+bestaudio/b/best",
         "is_audio": False,
     },
     {
         "format_id": "1080p",
         "label": "1080p Full HD",
-        "selector": "bestvideo[height<=1080]+bestaudio/bestvideo[height<=1080]/b/best",
+        "selector": "bestvideo[height<=1080][vcodec^=avc1]+bestaudio/bestvideo[height<=1080]+bestaudio/b/best",
         "is_audio": False,
     },
     {
         "format_id": "720p",
         "label": "720p HD",
-        "selector": "bestvideo[height<=720]+bestaudio/bestvideo[height<=720]/b/best",
+        "selector": "bestvideo[height<=720][vcodec^=avc1]+bestaudio/bestvideo[height<=720]+bestaudio/b/best",
         "is_audio": False,
     },
     {
         "format_id": "480p",
         "label": "480p",
-        "selector": "bestvideo[height<=480]+bestaudio/bestvideo[height<=480]/b/best",
+        "selector": "bestvideo[height<=480][vcodec^=avc1]+bestaudio/bestvideo[height<=480]+bestaudio/b/best",
         "is_audio": False,
     },
     {
         "format_id": "360p",
         "label": "360p",
-        "selector": "bestvideo[height<=360]+bestaudio/bestvideo[height<=360]/b/best",
+        "selector": "bestvideo[height<=360][vcodec^=avc1]+bestaudio/bestvideo[height<=360]+bestaudio/b/best",
         "is_audio": False,
     },
     {
         "format_id": "hd",
         "label": "HD Quality",
-        "selector": "hd/bestvideo+bestaudio/b/best",
+        "selector": "hd[vcodec^=avc1]/bestvideo[vcodec^=avc1]+bestaudio/b/best",
         "is_audio": False,
     },
     {
         "format_id": "sd",
         "label": "SD Quality",
-        "selector": "sd/bestvideo+bestaudio/b/best",
+        "selector": "sd[vcodec^=avc1]/bestvideo[vcodec^=avc1]+bestaudio/b/best",
         "is_audio": False,
     },
     {
@@ -788,7 +788,15 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
 
         # 1. Muxed format (has audio embedded or is standard Instagram/FB video stream)
         if not is_pure_video_only and not is_pure_audio_only:
-            if h <= max_h and h >= best_mux_h:
+            is_av1 = "av01" in vcodec or "av1" in vcodec or "vp09" in vcodec or "vp9" in vcodec
+            # Score: prefer H.264 (avc1) over AV1/VP9 to ensure Windows Media Player & iOS compatibility
+            score = (h if not is_av1 else h - 500)
+
+            best_vcodec = (best_muxed.get("vcodec") or "").lower() if best_muxed else ""
+            best_is_av1 = "av01" in best_vcodec or "av1" in best_vcodec or "vp09" in best_vcodec or "vp9" in best_vcodec
+            best_score  = (best_mux_h if not best_is_av1 else best_mux_h - 500) if best_muxed else -9999
+
+            if h <= max_h and score > best_score:
                 best_mux_h = h
                 best_muxed = fmt
 
