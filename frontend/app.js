@@ -197,7 +197,19 @@ async function analyzeUrl(url) {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ url: currentUrl }),
     });
-    const json = await res.json();
+
+    let json;
+    const cType = res.headers.get('content-type') || '';
+    if (cType.includes('application/json')) {
+      json = await res.json();
+    } else {
+      const txt = await res.text();
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        throw new Error('Server is waking up or busy. Please click GO again in 5 seconds.');
+      }
+      throw new Error('Could not extract media info. Please check the link and try again.');
+    }
+
     if (!res.ok) throw new Error(json.detail || 'Could not fetch media info.');
 
     const d = json.data;
@@ -255,7 +267,17 @@ async function triggerChromeDownload(formatId, btnEl) {
     const res = await fetch(
       `/api/get-links?url=${encodeURIComponent(currentUrl)}&format_id=${encodeURIComponent(formatId)}`
     );
-    const data = await res.json();
+
+    let data;
+    const cType = res.headers.get('content-type') || '';
+    if (cType.includes('application/json')) {
+      data = await res.json();
+    } else {
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        throw new Error('Server is waking up or busy. Please try again in 5 seconds.');
+      }
+      throw new Error('Could not extract download link.');
+    }
 
     if (!res.ok) {
       throw new Error(data.detail || 'Could not extract download link.');
