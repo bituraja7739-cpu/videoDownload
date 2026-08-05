@@ -293,12 +293,12 @@ def classify_error(exc: Exception) -> dict:
 def _build_format_selector(format_id: str) -> str:
     """
     Build format selector string for yt-dlp.
-    Prioritizes H.264 (avc1) video + AAC (mp4a) audio for 100% device compatibility across YouTube, Instagram, & Facebook.
+    Explicitly rejects AV1 (av01) streams and prioritizes H.264 (avc1) / VP9 + AAC (mp4a) audio.
     """
     if format_id in ("bestaudio/mp3", "audio_best", "audio_128k") or "audio" in format_id:
         return "bestaudio/best"
-    # Fallback chain prioritizing H.264 video + AAC audio for Facebook/YouTube/Instagram
-    return f"{format_id}[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/best[ext=mp4]/best"
+    # Fallback chain explicitly excluding AV1 and prioritizing H.264 video + AAC audio for Facebook/Instagram
+    return f"{format_id}[vcodec!^=av01][vcodec!^=av1][vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec!^=av01][vcodec!^=av1][vcodec^=avc1]+bestaudio/bestvideo[vcodec!^=av01][vcodec!^=av1]+bestaudio/best[ext=mp4]/best"
 
 
 def build_ydl_opts(
