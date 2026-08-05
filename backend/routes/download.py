@@ -89,14 +89,24 @@ async def proxy_download(
     safe_title = re.sub(r'\s+', '_', safe_title)[:40].strip('_') or "vidsnap_media"
     filename   = f"{safe_title}.{ext}"
 
+    referer = "https://www.instagram.com/" if ("cdninstagram.com" in url or "instagram" in url) else "https://www.facebook.com/"
+
     req_headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
         "Accept": "*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": referer,
+        "Origin": referer.rstrip('/'),
+        "Sec-Fetch-Dest": "video",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "cross-site",
     }
 
     try:
         req  = urllib.request.Request(url, headers=req_headers)
         resp = urllib.request.urlopen(req, timeout=20)
+        if resp.status not in (200, 206):
+            return RedirectResponse(url=url)
     except Exception:
         # Fallback: Redirect directly to CDN URL if stream connection fails
         return RedirectResponse(url=url)
