@@ -3,33 +3,33 @@
 // ─────────────────────────────────────────────────────────────
 // DOM Elements
 // ─────────────────────────────────────────────────────────────
-const urlInput     = document.getElementById('url-input');
-const searchForm   = document.getElementById('search-form');
-const btnText      = document.getElementById('btn-text');
-const downloadBtn  = document.getElementById('download-btn');
+const urlInput       = document.getElementById('url-input');
+const searchForm     = document.getElementById('search-form');
+const btnText        = document.getElementById('btn-text');
+const downloadBtn    = document.getElementById('download-btn');
 
-const loadingBox   = document.getElementById('loading-box');
-const errorBox     = document.getElementById('error-box');
-const errorMsg     = document.getElementById('error-msg');
-const resultCard   = document.getElementById('result-card');
+const loadingBox     = document.getElementById('loading-box');
+const errorBox       = document.getElementById('error-box');
+const errorMsg       = document.getElementById('error-msg');
+const resultCard     = document.getElementById('result-card');
 
-const vidThumb     = document.getElementById('vid-thumb');
-const vidDuration  = document.getElementById('vid-duration');
-const vidPlatform  = document.getElementById('vid-platform');
-const vidTitle     = document.getElementById('vid-title');
+const vidThumb       = document.getElementById('vid-thumb');
+const vidDuration    = document.getElementById('vid-duration');
+const vidPlatform    = document.getElementById('vid-platform');
+const vidTitle       = document.getElementById('vid-title');
 const vidContentType = document.getElementById('vid-content-type');
-const vidUploader  = document.getElementById('vid-uploader');
-const vidViews     = document.getElementById('vid-views');
+const vidUploader    = document.getElementById('vid-uploader');
+const vidViews       = document.getElementById('vid-views');
 
-const dlProgress    = document.getElementById('dl-progress');
-const dlStatusText  = document.getElementById('dl-status-text');
-const dlPercentText = document.getElementById('dl-percent-text');
-const dlBarWrap     = document.getElementById('dl-bar-wrap');
-const dlBarFill     = document.getElementById('dl-bar-fill');
-const dlSpeed       = document.getElementById('dl-speed');
-const dlEta         = document.getElementById('dl-eta');
+const dlProgress     = document.getElementById('dl-progress');
+const dlStatusText   = document.getElementById('dl-status-text');
+const dlPercentText  = document.getElementById('dl-percent-text');
+const dlBarWrap      = document.getElementById('dl-bar-wrap');
+const dlBarFill      = document.getElementById('dl-bar-fill');
+const dlSpeed        = document.getElementById('dl-speed');
+const dlEta          = document.getElementById('dl-eta');
 
-const qualityTbody  = document.getElementById('quality-tbody');
+const qualityTbody    = document.getElementById('quality-tbody');
 
 // ─────────────────────────────────────────────────────────────
 // State
@@ -64,8 +64,8 @@ function fmtSize(bytes) {
 }
 
 function detectPlatform(url) {
-  if (/instagram\.com/i.test(url))                   return 'instagram';
-  if (/facebook\.com|fb\.com|fb\.watch/i.test(url))  return 'facebook';
+  if (/instagram\.com/i.test(url))                  return 'instagram';
+  if (/facebook\.com|fb\.com|fb\.watch/i.test(url)) return 'facebook';
   return 'unknown';
 }
 
@@ -77,23 +77,23 @@ function platformTagClass(p) {
 // UI Control
 // ─────────────────────────────────────────────────────────────
 function hideAll() {
-  loadingBox.hidden = true;
-  errorBox.hidden   = true;
-  resultCard.hidden = true;
-  dlProgress.hidden = true;
+  loadingBox.classList.add('hidden');
+  errorBox.classList.add('hidden');
+  resultCard.classList.add('hidden');
+  dlProgress.classList.add('hidden');
 }
 
 function showError(msg) {
   hideAll();
   errorMsg.textContent = msg;
-  errorBox.hidden = false;
+  errorBox.classList.remove('hidden');
   document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
 }
 
 function setAnalyzing(v) {
   isAnalyzing = v;
   downloadBtn.disabled = v;
-  btnText.textContent  = v ? 'Analyzing…' : 'Download';
+  btnText.textContent  = v ? 'Analyzing…' : 'GO';
 }
 
 function highlightTab(url) {
@@ -119,26 +119,29 @@ function contentTypeBadge(type) {
     'story': { icon: '📱', label: 'Story' },
     'photo': { icon: '📷', label: 'Photo' },
     'video': { icon: '▶️', label: 'Video' },
+    'igtv': { icon: '📺', label: 'IGTV' },
     'carousel': { icon: '🎠', label: 'Carousel' }
   };
   const t = map[type.toLowerCase()];
   if (!t) return '';
   return `<span class="tag-${type.toLowerCase()}">${t.icon} ${t.label}</span>`;
 }
+
 function qualityBadge(fmt) {
   if (fmt.is_audio) {
     return `<span class="qual-badge">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#553c9a" stroke-width="2" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" aria-hidden="true">
         <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
       </svg>
-      ${fmt.label} <span class="qual-tag tag-mp3">MP3</span>
+      <span>${fmt.label}</span>
+      <span class="qual-tag tag-mp3">MP3</span>
     </span>`;
   }
   const h = fmt.height || 0;
   let tag = `<span class="qual-tag tag-sd">SD</span>`;
-  if (h >= 2160)    tag = `<span class="qual-tag tag-4k">4K</span>`;
-  else if (h >= 720) tag = `<span class="qual-tag tag-hd">HD</span>`;
-  return `<span class="qual-badge">${fmt.label} ${tag}</span>`;
+  if (h >= 2160)     tag = `<span class="qual-tag tag-4k">4K</span>`;
+  else if (h >= 720)  tag = `<span class="qual-tag tag-hd">HD</span>`;
+  return `<span class="qual-badge"><span>${fmt.label}</span> ${tag}</span>`;
 }
 
 function buildTable(formats) {
@@ -151,19 +154,19 @@ function buildTable(formats) {
       <td>${qualityBadge(fmt)}</td>
       <td class="fmt-cell">${fmt.is_audio ? 'MP3' : 'MP4'}</td>
       <td class="size-cell">${fmtSize(fmt.filesize)}</td>
-      <td>
+      <td class="text-right">
         <button
           class="dl-row-btn"
           id="dl-btn-${fmt.format_id}"
           data-format-id="${fmt.format_id}"
           aria-label="Download ${fmt.label}"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-          Download
+          <span>Download</span>
         </button>
       </td>
     `;
@@ -182,7 +185,7 @@ async function analyzeUrl(url) {
   currentUrl = url.trim();
   setAnalyzing(true);
   hideAll();
-  loadingBox.hidden = false;
+  loadingBox.classList.remove('hidden');
   highlightTab(currentUrl);
 
   document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
@@ -194,19 +197,19 @@ async function analyzeUrl(url) {
       body:    JSON.stringify({ url: currentUrl }),
     });
     const json = await res.json();
-    if (!res.ok) throw new Error(json.detail || 'Could not fetch video info.');
+    if (!res.ok) throw new Error(json.detail || 'Could not fetch Instagram media info.');
 
     const d = json.data;
 
     vidThumb.src = d.thumbnail || '';
-    vidThumb.alt = d.title;
+    vidThumb.alt = d.title || 'Instagram Post Preview';
     vidDuration.textContent = fmtDuration(d.duration);
-    vidDuration.hidden      = !d.duration;
-    vidTitle.textContent    = d.title;
-    vidUploader.textContent = d.uploader || '';
+    vidDuration.style.display = d.duration ? 'inline-block' : 'none';
+    vidTitle.textContent    = d.title || 'Instagram Media';
+    vidUploader.textContent = d.uploader ? `By @${d.uploader}` : '';
     vidViews.textContent    = fmtViews(d.view_count);
 
-    const plat = d.platform || 'unknown';
+    const plat = d.platform || 'instagram';
     vidPlatform.textContent = plat.charAt(0).toUpperCase() + plat.slice(1);
     vidPlatform.className   = `platform-tag ${platformTagClass(plat)}`;
 
@@ -219,38 +222,35 @@ async function analyzeUrl(url) {
 
     buildTable(d.formats || []);
 
-    loadingBox.hidden  = true;
-    resultCard.hidden  = false;
+    loadingBox.classList.add('hidden');
+    resultCard.classList.remove('hidden');
 
   } catch (err) {
-    showError(err.message || 'Something went wrong. Please try again.');
+    showError(err.message || 'Unable to extract Instagram link. Please check the URL and try again.');
   } finally {
     setAnalyzing(false);
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-// Trigger Download
+// Trigger Download (Auto File Saving, No New Tabs)
 // ─────────────────────────────────────────────────────────────
 async function triggerChromeDownload(formatId, btnEl) {
   if (!currentUrl) return;
 
-  // Show loading state on button
   const origText = btnEl.innerHTML;
   btnEl.disabled    = true;
   btnEl.textContent = 'Getting link…';
 
-  dlProgress.hidden = false;
+  dlProgress.classList.remove('hidden');
   dlStatusText.textContent  = '🔗 Extracting direct download link…';
   dlPercentText.textContent = '';
   dlBarFill.style.width     = '60%';
-  dlBarFill.style.background = 'linear-gradient(90deg, #0085CF, #01C5C9)';
-  dlSpeed.textContent = 'Connecting to CDN…';
-  dlEta.textContent   = '';
+  dlSpeed.textContent       = 'Connecting to Instagram CDN…';
+  dlEta.textContent         = '';
   dlProgress.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   try {
-    // Step 1: Ask server to extract CDN URLs (fast ~1-2 sec, zero bandwidth)
     const res = await fetch(
       `/api/get-links?url=${encodeURIComponent(currentUrl)}&format_id=${encodeURIComponent(formatId)}`
     );
@@ -261,41 +261,38 @@ async function triggerChromeDownload(formatId, btnEl) {
     }
 
     if (data.needs_merge) {
-      // Step 2b: DASH stream (video + audio separate) — use server FFmpeg merge
-      dlStatusText.textContent = '⬇ Downloading via server merge…';
+      dlStatusText.textContent = '⬇ Processing high-quality stream…';
       dlBarFill.style.width    = '100%';
-      dlSpeed.textContent = 'Server is merging video + audio. Download will start shortly.';
+      dlSpeed.textContent      = 'Merging audio + video. Download starting automatically.';
 
       const streamUrl = `/api/stream?url=${encodeURIComponent(currentUrl)}&format_id=${encodeURIComponent(formatId)}`;
       const a = document.createElement('a');
       a.href = streamUrl;
-      a.download = `${data.title || 'video'}.mp4`;
+      a.download = `${data.title || 'instagram_video'}.mp4`;
       document.body.appendChild(a);
       a.click();
       a.remove();
 
     } else {
-      // Step 2a: Auto file download via proxy (forces browser file save dialog, no new tab!)
       dlStatusText.textContent = '⬇ Download started automatically!';
       dlBarFill.style.width    = '100%';
-      dlSpeed.textContent      = '✅ Saving video file directly to your Downloads folder…';
+      dlSpeed.textContent      = '✅ Saving media file directly to your Downloads folder…';
 
       const ext  = data.ext || 'mp4';
-      const downloadUrl = `/api/proxy-download?url=${encodeURIComponent(data.video_url)}&title=${encodeURIComponent(data.title || 'video')}&ext=${encodeURIComponent(ext)}`;
+      const downloadUrl = `/api/proxy-download?url=${encodeURIComponent(data.video_url)}&title=${encodeURIComponent(data.title || 'instagram_media')}&ext=${encodeURIComponent(ext)}`;
 
       const a = document.createElement('a');
       a.href     = downloadUrl;
-      a.download = `${(data.title || 'video').replace(/[\\/*?:"<>|]/g, '_')}.${ext}`;
+      a.download = `${(data.title || 'instagram_media').replace(/[\\/*?:"<>|]/g, '_')}.${ext}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
     }
 
   } catch (err) {
-    // Fallback: direct /api/stream if get-links fails
-    dlStatusText.textContent = '⬇ Downloading…';
+    dlStatusText.textContent = '⬇ Starting download…';
     dlBarFill.style.width    = '100%';
-    dlSpeed.textContent = 'Sending to browser download manager…';
+    dlSpeed.textContent      = 'Sending to browser download manager…';
 
     const streamUrl = `/api/stream?url=${encodeURIComponent(currentUrl)}&format_id=${encodeURIComponent(formatId)}`;
     const a = document.createElement('a');
@@ -307,10 +304,34 @@ async function triggerChromeDownload(formatId, btnEl) {
   } finally {
     btnEl.disabled   = false;
     btnEl.innerHTML  = origText;
-    setTimeout(() => { dlProgress.hidden = true; }, 7000);
+    setTimeout(() => { dlProgress.classList.add('hidden'); }, 7000);
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Feature Quick Selection Chips
+// ─────────────────────────────────────────────────────────────
+function initFeatureChips() {
+  const chips = document.querySelectorAll('.feature-chip');
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      chips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+
+      const type = chip.dataset.type;
+      const typeNames = {
+        reel: 'Instagram Reel',
+        photo: 'Instagram Photo',
+        story: 'Instagram Story',
+        igtv: 'Instagram IGTV',
+        carousel: 'Instagram Carousel Post'
+      };
+
+      urlInput.placeholder = `Paste ${typeNames[type] || 'Instagram'} link here...`;
+      urlInput.focus();
+    });
+  });
+}
 
 // ─────────────────────────────────────────────────────────────
 // Event Listeners
@@ -327,6 +348,7 @@ urlInput.addEventListener('paste', () => setTimeout(() => highlightTab(urlInput.
 
 document.addEventListener('DOMContentLoaded', () => {
   urlInput.focus();
+  initFeatureChips();
   const params = new URLSearchParams(window.location.search);
   const pre    = params.get('url');
   if (pre) { urlInput.value = pre; analyzeUrl(pre); }

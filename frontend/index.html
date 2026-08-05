@@ -1,221 +1,473 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>VidSnap — Free Instagram & Facebook Downloader | Reels, Stories, Photos</title>
-  <meta name="description" content="Download Instagram & Facebook Reels, Stories, Photos and Videos for free. Fast, high quality, no registration needed."/>
+  <title>VidSnap — Free Instagram Downloader | Reels, Stories, Photos & IGTV</title>
+  <meta name="description" content="SaveFrom-inspired modern Instagram Downloader. Save Instagram Reels, Stories, Photos, Carousels, and IGTV videos in 4K/HD quality. 100% Free, No Ads."/>
+
+  <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            ig: {
+              yellow: '#FCAF45',
+              orange: '#F56040',
+              pink: '#E1306C',
+              purple: '#C13584',
+              darkPurple: '#833AB4',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Custom Styles -->
   <link rel="stylesheet" href="/static/style.css"/>
 </head>
-<body>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-pink-500 selection:text-white min-h-screen flex flex-col">
 
-<!-- HEADER -->
-<header class="header">
-  <div class="container header-inner">
-    <a href="/" class="logo" aria-label="VidSnap Home">
-      <div class="logo-icon-wrap">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="url(#lg1)"/><polygon points="10,8 16,12 10,16" fill="#fff"/><defs><linearGradient id="lg1" x1="0" y1="0" x2="24" y2="24"><stop offset="0%" stop-color="#0085CF"/><stop offset="100%" stop-color="#01C5C9"/></linearGradient></defs></svg>
-      </div>
-      <span>VidSnap</span>
-    </a>
-    <nav class="nav" aria-label="Main navigation">
-      <a href="/" class="nav-link active">Home</a>
-      <a href="/" class="nav-link">Instagram</a>
-      <a href="/" class="nav-link">Facebook</a>
-    </nav>
-  </div>
-</header>
-
-<!-- HERO SECTION -->
-<section class="hero" aria-labelledby="hero-title">
-  <div class="container">
-    <h1 id="hero-title" class="hero-title">Instagram & Facebook Downloader</h1>
-    <p class="hero-sub">Download Reels, Stories, Photos & Videos for Free</p>
-
-    <!-- Search Box -->
-    <form class="search-box" id="search-form" role="search" aria-label="Video URL search">
-      <div class="search-inner">
-        <div class="search-icon-wrap" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        </div>
-        <input
-          type="url"
-          id="url-input"
-          class="search-input"
-          placeholder="Paste Instagram or Facebook link here..."
-          autocomplete="off"
-          spellcheck="false"
-          aria-label="Video link"
-          required
-        />
-        <button type="submit" id="download-btn" class="search-btn" aria-label="Download">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span id="btn-text">Download</span>
-        </button>
-      </div>
-
-      <!-- Platform tabs -->
-      <div class="platform-tabs" aria-label="Supported platforms">
-        <span class="ptab ptab-ig" id="tab-ig">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><defs><radialGradient id="ig-h" cx="30%" cy="107%" r="150%"><stop offset="0%" stop-color="#fdf497"/><stop offset="45%" stop-color="#fd5949"/><stop offset="90%" stop-color="#285AEB"/></radialGradient></defs><path fill="url(#ig-h)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-          Instagram
-        </span>
-        <span class="ptab ptab-fb" id="tab-fb">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-          Facebook
-        </span>
-      </div>
-    </form>
-  </div>
-</section>
-
-<!-- RESULT AREA -->
-<main class="result-section" id="result-section">
-  <div class="container">
-
-    <!-- Loading -->
-    <div id="loading-box" class="loading-box" hidden aria-live="polite" aria-label="Loading">
-      <div class="spinner" aria-hidden="true"></div>
-      <p>Fetching video info…</p>
-    </div>
-
-    <!-- Error -->
-    <div id="error-box" class="error-box" hidden role="alert" aria-live="assertive">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <div>
-        <strong class="error-title">Error</strong>
-        <p id="error-msg" class="error-msg"></p>
-      </div>
-    </div>
-
-    <!-- Result Card -->
-    <div id="result-card" class="result-card" hidden>
-
-      <!-- Video Info -->
-      <div class="video-info-row">
-        <div class="thumb-wrap">
-          <img id="vid-thumb" src="" alt="Thumbnail" class="thumb-img" loading="lazy"/>
-          <span id="vid-duration" class="dur-badge"></span>
-        </div>
-        <div class="vid-meta">
-          <div class="tags-row" style="display: flex; gap: 8px; margin-bottom: 4px;">
-            <span id="vid-platform" class="platform-tag"></span>
-            <span id="vid-content-type" class="content-type-badge"></span>
+  <!-- ==================== HEADER ==================== -->
+  <header class="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/80 transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <a href="/" class="flex items-center gap-3 group" aria-label="VidSnap Home">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-yellow-500 via-pink-600 to-purple-700 p-0.5 shadow-lg shadow-pink-500/20 group-hover:scale-105 transition-transform duration-300">
+          <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
+            <svg class="w-6 h-6 text-white transform group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#ig-grad-logo)"/>
+              <circle cx="12" cy="12" r="4.5" stroke="white" stroke-width="2"/>
+              <circle cx="17.5" cy="6.5" r="1.2" fill="white"/>
+              <polygon points="10.5,9.5 15,12 10.5,14.5" fill="white"/>
+              <defs>
+                <linearGradient id="ig-grad-logo" x1="0" y1="24" x2="24" y2="0">
+                  <stop offset="0%" stop-color="#f09433"/>
+                  <stop offset="25%" stop-color="#e6683c"/>
+                  <stop offset="50%" stop-color="#dc2743"/>
+                  <stop offset="75%" stop-color="#cc2366"/>
+                  <stop offset="100%" stop-color="#bc1888"/>
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
-          <h2 id="vid-title" class="vid-title"></h2>
-          <p id="vid-uploader" class="vid-uploader"></p>
-          <p id="vid-views" class="vid-views"></p>
         </div>
-      </div>
+        <div class="flex flex-col">
+          <span class="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-amber-400 via-pink-500 to-purple-500 bg-clip-text text-transparent">
+            VidSnap
+          </span>
+          <span class="text-[10px] font-semibold text-slate-400 tracking-wider uppercase -mt-1">Instagram Save</span>
+        </div>
+      </a>
 
-      <!-- Progress Bar (shown during active download) -->
-      <div id="dl-progress" class="dl-progress" hidden role="status" aria-live="polite">
-        <div class="dl-progress-header">
-          <span id="dl-status-text">Downloading…</span>
-          <span id="dl-percent-text" class="dl-pct">0%</span>
+      <!-- Navigation -->
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+        <a href="/" class="text-white font-semibold hover:text-pink-400 transition-colors">Home</a>
+        
+        <!-- Supported Platforms Dropdown -->
+        <div class="relative group">
+          <button class="flex items-center gap-1.5 hover:text-pink-400 transition-colors py-2" aria-expanded="false">
+            <span>Supported Platforms</span>
+            <svg class="w-4 h-4 text-slate-400 group-hover:text-pink-400 transition-transform group-hover:rotate-180 duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          
+          <!-- Dropdown Menu -->
+          <div class="absolute top-full left-0 w-48 py-2 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl shadow-black/80 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
+            <a href="/" class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/80 text-slate-200 hover:text-pink-400 transition-colors">
+              <span class="w-2 h-2 rounded-full bg-pink-500"></span>
+              Instagram Reels
+            </a>
+            <a href="/" class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/80 text-slate-200 hover:text-pink-400 transition-colors">
+              <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+              Instagram Stories
+            </a>
+            <a href="/" class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/80 text-slate-200 hover:text-pink-400 transition-colors">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+              Photos & Carousels
+            </a>
+            <a href="/" class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/80 text-slate-200 hover:text-blue-400 transition-colors border-t border-slate-800/60 mt-1">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              Facebook Videos
+            </a>
+          </div>
         </div>
-        <div class="dl-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="dl-bar-wrap">
-          <div class="dl-bar-fill" id="dl-bar-fill"></div>
-        </div>
-        <div class="dl-stats">
-          <span id="dl-speed">Speed: —</span>
-          <span id="dl-eta">ETA: —</span>
-        </div>
-      </div>
 
-      <!-- Quality Table -->
-      <div class="table-wrap" id="table-wrap">
-        <table class="quality-table" aria-label="Available download formats">
-          <thead>
-            <tr>
-              <th scope="col">Quality</th>
-              <th scope="col">Format</th>
-              <th scope="col">Size</th>
-              <th scope="col">Action</th>
-            </tr>
-          </thead>
-          <tbody id="quality-tbody">
-          </tbody>
-        </table>
+        <a href="#features" class="hover:text-pink-400 transition-colors">Features</a>
+        <a href="#how-it-works" class="hover:text-pink-400 transition-colors">How it Works</a>
+      </nav>
+
+      <!-- Download App Action Button -->
+      <div class="flex items-center gap-3">
+        <a href="#download-app" class="relative inline-flex items-center justify-center p-0.5 overflow-hidden text-sm font-semibold rounded-2xl group bg-gradient-to-br from-purple-600 via-pink-600 to-amber-500 group-hover:from-purple-600 group-hover:to-amber-500 hover:text-white text-white shadow-lg shadow-pink-500/20 hover:shadow-pink-500/40 transition-all duration-300 hover:scale-[1.02]">
+          <span class="relative px-5 py-2.5 transition-all ease-in duration-75 bg-slate-950 rounded-[14px] group-hover:bg-opacity-0 flex items-center gap-2">
+            <svg class="w-4 h-4 text-pink-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            <span>Download App</span>
+          </span>
+        </a>
       </div>
 
     </div>
-  </div>
-</main>
+  </header>
 
-<!-- HOW TO USE -->
-<section class="how-section" aria-labelledby="how-title">
-  <div class="container">
-    <h2 id="how-title" class="section-title">How to Download Videos</h2>
-    <div class="steps-grid">
-      <div class="step-card">
-        <div class="step-num">1</div>
-        <h3>Copy the Link</h3>
-        <p>Go to Instagram or Facebook. Copy the link of the Reel, Story, Photo, or Video from your browser or share button.</p>
+  <!-- ==================== MAIN HERO SECTION ==================== -->
+  <section class="relative pt-12 pb-20 md:pt-20 md:pb-28 overflow-hidden">
+    
+    <!-- Background Ambient Glow Effects -->
+    <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-purple-600/20 via-pink-600/20 to-amber-500/10 blur-[120px] rounded-full pointer-events-none -z-10"></div>
+    
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+      
+      <!-- Top Badge -->
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs font-semibold text-pink-400 mb-6 shadow-inner">
+        <span class="flex h-2 w-2 rounded-full bg-pink-500 animate-pulse"></span>
+        <span>SaveFrom-Inspired Modern Downloader</span>
       </div>
-      <div class="step-card">
-        <div class="step-num">2</div>
-        <h3>Paste & Analyze</h3>
-        <p>Paste the link into the search box above and click <strong>Download</strong> to fetch all available quality options.</p>
+
+      <!-- Main Heading -->
+      <h1 class="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-white mb-4 leading-tight">
+        Instagram Video &amp; Photo <br class="hidden sm:inline"/>
+        <span class="bg-gradient-to-r from-amber-400 via-pink-500 to-purple-500 bg-clip-text text-transparent">
+          Downloader Online
+        </span>
+      </h1>
+
+      <!-- Subtitle -->
+      <p class="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10 font-normal">
+        Save Reels, Stories, Photos, IGTV &amp; Carousels in Ultra HD 4K Quality. 100% Free, Safe, &amp; Fast.
+      </p>
+
+      <!-- Central Search Box Container -->
+      <form id="search-form" class="relative max-w-3xl mx-auto mb-8 group" role="search" aria-label="Instagram Link Input">
+        
+        <!-- Animated Border Gradient Glow -->
+        <div class="absolute -inset-1 bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 rounded-3xl blur-md opacity-40 group-hover:opacity-75 transition duration-500 group-focus-within:opacity-100"></div>
+
+        <div class="relative bg-slate-900 border border-slate-800 rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row items-center gap-3 shadow-2xl">
+          
+          <!-- Input Icon -->
+          <div class="pl-3 hidden sm:flex items-center text-slate-400">
+            <svg class="w-6 h-6 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+            </svg>
+          </div>
+
+          <!-- URL Input Field -->
+          <input
+            type="url"
+            id="url-input"
+            class="w-full bg-transparent px-4 py-3 sm:py-2 text-base sm:text-lg text-white placeholder-slate-500 focus:outline-none font-medium"
+            placeholder="Paste Instagram link here (Reels, Story, Photo, Post)..."
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Instagram link URL"
+            required
+          />
+
+          <!-- Action GO / Download Button -->
+          <button
+            type="submit"
+            id="download-btn"
+            class="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-amber-500 via-pink-600 to-purple-600 hover:from-amber-400 hover:via-pink-500 hover:to-purple-500 text-white font-extrabold rounded-xl shadow-lg shadow-pink-600/30 hover:shadow-pink-600/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 shrink-0 text-lg tracking-wide"
+            aria-label="Download Media"
+          >
+            <span id="btn-text">GO</span>
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+          </button>
+        </div>
+      </form>
+
+      <!-- Instagram Feature Quick Selection Chips -->
+      <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-3 max-w-2xl mx-auto" aria-label="Feature quick selection">
+        
+        <button type="button" class="feature-chip active" data-type="reel" id="chip-reel">
+          <span>🎬</span>
+          <span>Reels</span>
+        </button>
+
+        <button type="button" class="feature-chip" data-type="photo" id="chip-photo">
+          <span>📷</span>
+          <span>Photos</span>
+        </button>
+
+        <button type="button" class="feature-chip" data-type="story" id="chip-story">
+          <span>📱</span>
+          <span>Stories</span>
+        </button>
+
+        <button type="button" class="feature-chip" data-type="igtv" id="chip-igtv">
+          <span>📺</span>
+          <span>IGTV</span>
+        </button>
+
+        <button type="button" class="feature-chip" data-type="carousel" id="chip-carousel">
+          <span>🎠</span>
+          <span>Carousels</span>
+        </button>
+
+        <!-- Tab Badges for JS state compatibility -->
+        <span id="tab-ig" class="hidden"></span>
+        <span id="tab-fb" class="hidden"></span>
       </div>
-      <div class="step-card">
-        <div class="step-num">3</div>
-        <h3>Choose Quality & Save</h3>
-        <p>Pick your preferred quality (4K, 1080p, 720p, MP3…) and click the Download button. File saves to your device.</p>
+
+    </div>
+  </section>
+
+  <!-- ==================== RESULT AREA ==================== -->
+  <main class="relative z-10 -mt-6 pb-20" id="result-section">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+
+      <!-- Loading State -->
+      <div id="loading-box" class="hidden bg-slate-900/90 border border-slate-800 rounded-3xl p-10 text-center shadow-2xl backdrop-blur-xl">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800/80 mb-4 border border-slate-700">
+          <div class="w-8 h-8 rounded-full border-3 border-pink-500 border-t-transparent animate-spin"></div>
+        </div>
+        <h3 class="text-xl font-bold text-white mb-1">Analyzing Link...</h3>
+        <p class="text-slate-400 text-sm">Fetching high-quality media streams directly from Instagram CDN</p>
+      </div>
+
+      <!-- Error State -->
+      <div id="error-box" class="hidden bg-red-950/40 border border-red-800/60 rounded-3xl p-6 shadow-2xl backdrop-blur-xl">
+        <div class="flex items-start gap-4">
+          <div class="p-3 bg-red-900/50 rounded-2xl text-red-400 shrink-0">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div>
+            <h4 class="text-lg font-bold text-red-200 mb-1">Unable to Extract Link</h4>
+            <p id="error-msg" class="text-red-300/90 text-sm leading-relaxed"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Result Card Container -->
+      <div id="result-card" class="hidden bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-6">
+
+        <!-- Media Preview Row -->
+        <div class="flex flex-col sm:flex-row gap-6 items-start">
+          
+          <!-- Thumbnail & Duration -->
+          <div class="relative w-full sm:w-56 aspect-video sm:aspect-square rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shrink-0 shadow-lg group">
+            <img id="vid-thumb" src="" alt="Media Thumbnail" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
+            <span id="vid-duration" class="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-slate-950/80 backdrop-blur-md text-xs font-semibold text-white border border-slate-700/60"></span>
+          </div>
+
+          <!-- Video Metadata -->
+          <div class="flex-1 space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="vid-platform" class="px-3 py-1 rounded-full text-xs font-bold bg-pink-950/60 text-pink-300 border border-pink-800/60">Instagram</span>
+              <span id="vid-content-type" class="px-3 py-1 rounded-full text-xs font-bold bg-purple-950/60 text-purple-300 border border-purple-800/60"></span>
+            </div>
+            
+            <h2 id="vid-title" class="text-xl sm:text-2xl font-bold text-white leading-snug line-clamp-2"></h2>
+            
+            <div class="flex items-center gap-4 text-xs font-medium text-slate-400 pt-1">
+              <span id="vid-uploader" class="flex items-center gap-1.5"></span>
+              <span id="vid-views" class="flex items-center gap-1.5"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Download Progress Bar -->
+        <div id="dl-progress" class="hidden space-y-3 bg-slate-950/80 border border-slate-800 rounded-2xl p-5">
+          <div class="flex justify-between items-center text-sm font-semibold">
+            <span id="dl-status-text" class="text-pink-400">Downloading...</span>
+            <span id="dl-percent-text" class="text-slate-300">0%</span>
+          </div>
+          <div id="dl-bar-wrap" class="w-full h-3 bg-slate-800 rounded-full overflow-hidden p-0.5">
+            <div id="dl-bar-fill" class="h-full bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 rounded-full transition-all duration-300 w-0"></div>
+          </div>
+          <div class="flex justify-between text-xs text-slate-400">
+            <span id="dl-speed">Speed: —</span>
+            <span id="dl-eta">ETA: —</span>
+          </div>
+        </div>
+
+        <!-- Download Formats Table -->
+        <div id="table-wrap" class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/50">
+          <table class="w-full text-left text-sm text-slate-300" aria-label="Download formats">
+            <thead class="bg-slate-900/80 text-xs font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-800">
+              <tr>
+                <th scope="col" class="px-6 py-4">Quality / Format</th>
+                <th scope="col" class="px-6 py-4">Type</th>
+                <th scope="col" class="px-6 py-4">Size</th>
+                <th scope="col" class="px-6 py-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="quality-tbody" class="divide-y divide-slate-800/60 font-medium">
+            </tbody>
+          </table>
+        </div>
+
       </div>
     </div>
-  </div>
-</section>
+  </main>
 
-<!-- FEATURES -->
-<section class="features-section" aria-labelledby="feat-title">
-  <div class="container">
-    <h2 id="feat-title" class="section-title">Why VidSnap?</h2>
-    <div class="features-grid">
-      <div class="feat-card">
-        <div class="feat-icon" style="background:#FFF3F3">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="2" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        </div>
-        <h3>Reels & Stories</h3>
-        <p>Download Instagram Reels, Facebook Reels & Stories directly to your device.</p>
+  <!-- ==================== FEATURES SECTION ==================== -->
+  <section id="features" class="py-20 bg-slate-900/40 border-t border-slate-800/60">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="text-center max-w-3xl mx-auto mb-16">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">
+          Why Choose <span class="bg-gradient-to-r from-amber-400 via-pink-500 to-purple-500 bg-clip-text text-transparent">VidSnap</span>?
+        </h2>
+        <p class="text-slate-400 text-base sm:text-lg">
+          The ultimate Instagram media downloader engineered for maximum speed, security, and convenience.
+        </p>
       </div>
-      <div class="feat-card">
-        <div class="feat-icon" style="background:#F0FFF4">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#38a169" stroke-width="2" aria-hidden="true"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+
+      <!-- Features Grid (4 Cards) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        
+        <!-- Feature Card 1 -->
+        <div class="bg-slate-900/80 border border-slate-800 hover:border-pink-500/50 rounded-3xl p-7 transition-all duration-300 hover:-translate-y-1 shadow-xl group">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500/20 to-purple-500/20 border border-pink-500/30 flex items-center justify-center mb-6 text-pink-400 group-hover:scale-110 transition-transform">
+            <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2">Fast Instagram Downloader</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">
+            Direct CDN links deliver maximum download speed with zero waiting time or bandwidth throttling.
+          </p>
         </div>
-        <h3>Photos & Videos</h3>
-        <p>High quality photos, videos, and carousel albums from Instagram and Facebook.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-icon" style="background:#EBF8FF">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#3182ce" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+
+        <!-- Feature Card 2 -->
+        <div class="bg-slate-900/80 border border-slate-800 hover:border-purple-500/50 rounded-3xl p-7 transition-all duration-300 hover:-translate-y-1 shadow-xl group">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 flex items-center justify-center mb-6 text-purple-400 group-hover:scale-110 transition-transform">
+            <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2">High-Quality Media Save</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">
+            Save original 4K, 1080p Full HD Reels, Stories, photos, and high-bitrate MP3 audio without quality loss.
+          </p>
         </div>
-        <h3>100% Free</h3>
-        <p>No registration, no watermark, no app install required. Completely free forever.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-icon" style="background:#FFFAF0">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#d69e2e" stroke-width="2" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+
+        <!-- Feature Card 3 -->
+        <div class="bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-7 transition-all duration-300 hover:-translate-y-1 shadow-xl group">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/30 flex items-center justify-center mb-6 text-amber-400 group-hover:scale-110 transition-transform">
+            <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2">Easy Mobile Support</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">
+            Works seamlessly across Android, iPhone, iPad, PC, and Mac directly in your mobile browser.
+          </p>
         </div>
-        <h3>Live Progress</h3>
-        <p>Real-time download progress with speed and ETA — no guessing when it's done.</p>
+
+        <!-- Feature Card 4 -->
+        <div class="bg-slate-900/80 border border-slate-800 hover:border-emerald-500/50 rounded-3xl p-7 transition-all duration-300 hover:-translate-y-1 shadow-xl group">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center mb-6 text-emerald-400 group-hover:scale-110 transition-transform">
+            <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2">100% Clean &amp; Safe</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">
+            No malicious pop-ups, no fake download buttons, no forced VPNs, and no account login required.
+          </p>
+        </div>
+
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- FOOTER -->
-<footer class="footer" role="contentinfo">
-  <div class="container footer-inner">
-    <p class="footer-logo">VidSnap</p>
-    <p class="footer-note">For personal use only. Respect copyright laws and platform terms of service.</p>
-    <p class="footer-note">Powered by <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">yt-dlp</a> &amp; <a href="https://fastapi.tiangolo.com" target="_blank" rel="noopener">FastAPI</a></p>
-  </div>
-</footer>
+  <!-- ==================== HOW IT WORKS SECTION ==================== -->
+  <section id="how-it-works" class="py-20 bg-slate-950 border-t border-slate-800/60">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      
+      <div class="text-center max-w-3xl mx-auto mb-16">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">
+          How to Download Instagram Media?
+        </h2>
+        <p class="text-slate-400 text-base">3 simple steps to save any Instagram video, reel, or photo to your device.</p>
+      </div>
 
-<script src="/static/app.js"></script>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+        
+        <!-- Step 1 -->
+        <div class="relative bg-slate-900/60 border border-slate-800 rounded-3xl p-8 text-center space-y-4">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-r from-amber-500 to-pink-500 text-white font-black text-xl flex items-center justify-center mx-auto shadow-lg shadow-pink-500/20">
+            1
+          </div>
+          <h3 class="text-lg font-bold text-white">Copy Instagram Link</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">
+            Open Instagram on your phone or browser. Copy the URL of the Reel, Story, or Post you want to save.
+          </p>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="relative bg-slate-900/60 border border-slate-800 rounded-3xl p-8 text-center space-y-4">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white font-black text-xl flex items-center justify-center mx-auto shadow-lg shadow-purple-500/20">
+            2
+          </div>
+          <h3 class="text-lg font-bold text-white">Paste Link &amp; Click GO</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">
+            Paste the copied URL into the search bar above and click the <strong>GO</strong> button to extract media links.
+          </p>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="relative bg-slate-900/60 border border-slate-800 rounded-3xl p-8 text-center space-y-4">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-black text-xl flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/20">
+            3
+          </div>
+          <h3 class="text-lg font-bold text-white">Save File to Device</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">
+            Select your desired quality (4K, 1080p, MP3) and click Download. The file saves automatically.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="mt-auto bg-slate-950 border-t border-slate-800/80 py-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6 text-sm text-slate-400">
+      
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-black bg-gradient-to-r from-amber-400 via-pink-500 to-purple-500 bg-clip-text text-transparent">VidSnap</span>
+        <span class="text-slate-600">|</span>
+        <span>Instagram Downloader</span>
+      </div>
+
+      <p class="text-center text-xs text-slate-500 max-w-md">
+        For personal use only. VidSnap is not affiliated with Instagram or Meta. Respect content creators' rights.
+      </p>
+
+      <div class="flex items-center gap-4 text-xs font-semibold text-slate-400">
+        <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener" class="hover:text-pink-400 transition-colors">yt-dlp</a>
+        <span>•</span>
+        <a href="https://fastapi.tiangolo.com" target="_blank" rel="noopener" class="hover:text-pink-400 transition-colors">FastAPI</a>
+      </div>
+
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
 </body>
 </html>
