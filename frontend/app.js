@@ -97,15 +97,16 @@ function setAnalyzing(v) {
 }
 
 function highlightTab(url) {
-  ['tab-ig', 'tab-fb'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.classList.remove('active');
-  });
-  const map = { instagram: 'tab-ig', facebook: 'tab-fb' };
+  const tabIg = document.getElementById('tab-ig');
+  const tabFb = document.getElementById('tab-fb');
+  if (tabIg) tabIg.classList.remove('active');
+  if (tabFb) tabFb.classList.remove('active');
+
   const p = detectPlatform(url);
-  if (map[p]) {
-    const el = document.getElementById(map[p]);
-    if (el) el.classList.add('active');
+  if (p === 'facebook' && tabFb) {
+    tabFb.classList.add('active');
+  } else if (tabIg) {
+    tabIg.classList.add('active');
   }
 }
 
@@ -197,19 +198,19 @@ async function analyzeUrl(url) {
       body:    JSON.stringify({ url: currentUrl }),
     });
     const json = await res.json();
-    if (!res.ok) throw new Error(json.detail || 'Could not fetch Instagram media info.');
+    if (!res.ok) throw new Error(json.detail || 'Could not fetch media info.');
 
     const d = json.data;
 
     vidThumb.src = d.thumbnail || '';
-    vidThumb.alt = d.title || 'Instagram Post Preview';
+    vidThumb.alt = d.title || 'Media Preview';
     vidDuration.textContent = fmtDuration(d.duration);
     vidDuration.style.display = d.duration ? 'inline-block' : 'none';
-    vidTitle.textContent    = d.title || 'Instagram Media';
-    vidUploader.textContent = d.uploader ? `By @${d.uploader}` : '';
+    vidTitle.textContent    = d.title || 'Downloaded Media';
+    vidUploader.textContent = d.uploader ? `By ${d.uploader.startsWith('@') ? d.uploader : '@' + d.uploader}` : '';
     vidViews.textContent    = fmtViews(d.view_count);
 
-    const plat = d.platform || 'instagram';
+    const plat = d.platform || detectPlatform(currentUrl);
     vidPlatform.textContent = plat.charAt(0).toUpperCase() + plat.slice(1);
     vidPlatform.className   = `platform-tag ${platformTagClass(plat)}`;
 
@@ -226,7 +227,7 @@ async function analyzeUrl(url) {
     resultCard.classList.remove('hidden');
 
   } catch (err) {
-    showError(err.message || 'Unable to extract Instagram link. Please check the URL and try again.');
+    showError(err.message || 'Unable to extract link. Please check the URL and try again.');
   } finally {
     setAnalyzing(false);
   }
@@ -246,7 +247,7 @@ async function triggerChromeDownload(formatId, btnEl) {
   dlStatusText.textContent  = '🔗 Extracting direct download link…';
   dlPercentText.textContent = '';
   dlBarFill.style.width     = '60%';
-  dlSpeed.textContent       = 'Connecting to Instagram CDN…';
+  dlSpeed.textContent       = 'Connecting to CDN…';
   dlEta.textContent         = '';
   dlProgress.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
@@ -268,7 +269,7 @@ async function triggerChromeDownload(formatId, btnEl) {
       const streamUrl = `/api/stream?url=${encodeURIComponent(currentUrl)}&format_id=${encodeURIComponent(formatId)}`;
       const a = document.createElement('a');
       a.href = streamUrl;
-      a.download = `${data.title || 'instagram_video'}.mp4`;
+      a.download = `${data.title || 'media_video'}.mp4`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -279,11 +280,11 @@ async function triggerChromeDownload(formatId, btnEl) {
       dlSpeed.textContent      = '✅ Saving media file directly to your Downloads folder…';
 
       const ext  = data.ext || 'mp4';
-      const downloadUrl = `/api/proxy-download?url=${encodeURIComponent(data.video_url)}&title=${encodeURIComponent(data.title || 'instagram_media')}&ext=${encodeURIComponent(ext)}`;
+      const downloadUrl = `/api/proxy-download?url=${encodeURIComponent(data.video_url)}&title=${encodeURIComponent(data.title || 'media_file')}&ext=${encodeURIComponent(ext)}`;
 
       const a = document.createElement('a');
       a.href     = downloadUrl;
-      a.download = `${(data.title || 'instagram_media').replace(/[\\/*?:"<>|]/g, '_')}.${ext}`;
+      a.download = `${(data.title || 'media_file').replace(/[\\/*?:"<>|]/g, '_')}.${ext}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -309,9 +310,30 @@ async function triggerChromeDownload(formatId, btnEl) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Feature Quick Selection Chips
+// Feature Quick Selection Chips & Platform Tabs
 // ─────────────────────────────────────────────────────────────
 function initFeatureChips() {
+  const tabIg = document.getElementById('tab-ig');
+  const tabFb = document.getElementById('tab-fb');
+
+  if (tabIg) {
+    tabIg.addEventListener('click', () => {
+      tabIg.classList.add('active');
+      tabFb?.classList.remove('active');
+      urlInput.placeholder = 'Paste Instagram link here (Reel, Story, Photo, Post)...';
+      urlInput.focus();
+    });
+  }
+
+  if (tabFb) {
+    tabFb.addEventListener('click', () => {
+      tabFb.classList.add('active');
+      tabIg?.classList.remove('active');
+      urlInput.placeholder = 'Paste Facebook link here (Reel, Video, Watch, Story)...';
+      urlInput.focus();
+    });
+  }
+
   const chips = document.querySelectorAll('.feature-chip');
   chips.forEach(chip => {
     chip.addEventListener('click', () => {
@@ -323,11 +345,21 @@ function initFeatureChips() {
         reel: 'Instagram Reel',
         photo: 'Instagram Photo',
         story: 'Instagram Story',
-        igtv: 'Instagram IGTV',
+        fb_reel: 'Facebook Reel',
+        fb_video: 'Facebook Video',
+        fb_watch: 'Facebook Watch Video',
         carousel: 'Instagram Carousel Post'
       };
 
-      urlInput.placeholder = `Paste ${typeNames[type] || 'Instagram'} link here...`;
+      if (type && type.startsWith('fb_') && tabFb) {
+        tabFb.classList.add('active');
+        tabIg?.classList.remove('active');
+      } else if (tabIg) {
+        tabIg.classList.add('active');
+        tabFb?.classList.remove('active');
+      }
+
+      urlInput.placeholder = `Paste ${typeNames[type] || 'Instagram or Facebook'} link here...`;
       urlInput.focus();
     });
   });
