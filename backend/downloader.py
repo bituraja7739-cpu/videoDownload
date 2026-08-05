@@ -287,21 +287,35 @@ def classify_error(exc: Exception) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# yt-dlp Options Builder
+# Format Selector & yt-dlp Options Builder
 # ---------------------------------------------------------------------------
+
+def _build_format_selector(format_id: str) -> str:
+    """
+    Build format selector string for yt-dlp.
+    Prioritizes H.264 (avc1) video + AAC (mp4a) audio for 100% device compatibility across YouTube, Instagram, & Facebook.
+    """
+    if format_id in ("bestaudio/mp3", "audio_best", "audio_128k") or "audio" in format_id:
+        return "bestaudio/best"
+    # Fallback chain prioritizing H.264 video + AAC audio for Facebook/YouTube/Instagram
+    return f"{format_id}[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/best[ext=mp4]/best"
+
 
 def build_ydl_opts(
     format_selector: str,
     output_template: str,
-    is_audio_only: bool,
+    is_audio_only: bool = False,
     job_id: Optional[str] = None,
     cookies_file: Optional[str] = None,
 ) -> dict:
     """
-    Build a complete yt-dlp options dict.
+    Build a complete yt-dlp options dict with MP4 remux/recode fallback.
     """
+    # Build format string if format_id passed
+    fmt_str = _build_format_selector(format_selector) if not ("+" in format_selector or "/" in format_selector) else format_selector
+
     opts: dict = {
-        "format": format_selector,
+        "format": fmt_str,
         "outtmpl": output_template,
         "socket_timeout": 30,
         "retries": 5,
@@ -371,6 +385,10 @@ def build_ydl_opts(
         opts["progress_hooks"] = [_hook]
 
     return opts
+
+
+# Alias for internal or external callers
+_build_ydl_opts = build_ydl_opts
 
 
 # ---------------------------------------------------------------------------
