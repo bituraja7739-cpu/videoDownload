@@ -1037,7 +1037,8 @@ async def stream_via_ffmpeg(
         a_hdrs = _headers_str(stream_info.get("audio_headers", {"User-Agent": _UA}))
         vcodec = stream_info.get("vcodec", "")
 
-        v_encoder = ["-c:v", "copy"]
+        # Force H.264 (libx264) + yuv420p pixel format for 100% laptop & Windows Media Player visual playback
+        v_encoder = ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-pix_fmt", "yuv420p"]
 
         reconnect_opts = [
             "-reconnect", "1",
@@ -1104,7 +1105,12 @@ async def stream_via_ffmpeg(
             *reconnect_opts,
             "-headers",   s_hdrs,
             "-i",         s_url,
-            "-c",         "copy",
+            "-c:v",       "libx264",
+            "-preset",    "ultrafast",
+            "-crf",       "23",
+            "-pix_fmt",   "yuv420p",
+            "-c:a",       "aac",
+            "-b:a",       "192k",
             "-movflags",  "frag_keyframe+empty_moov+default_base_moof",
             "-f",         "mp4",
             "pipe:1",
