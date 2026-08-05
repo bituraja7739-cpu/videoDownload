@@ -332,11 +332,19 @@ def build_ydl_opts(
     if ffmpeg_bin:
         opts["ffmpeg_location"] = os.path.dirname(ffmpeg_bin)
 
-    # Always merge video+audio into mp4 (requires FFmpeg) with faststart moov atom header
+    # Always merge & force-recode video into universally compatible H.264 (libx264) + AAC MP4 with faststart moov atom
     if not is_audio_only:
         opts["merge_output_format"] = "mp4"
+        opts["recode_video"] = "mp4"
         opts["postprocessor_args"] = {
-            "ffmpeg": ["-movflags", "+faststart", "-c:v", "libx264", "-c:a", "aac"]
+            "ffmpeg": [
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", "23",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-movflags", "+faststart",
+            ]
         }
         opts["postprocessors"] = [
             {
