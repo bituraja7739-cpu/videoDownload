@@ -332,9 +332,12 @@ def build_ydl_opts(
     if ffmpeg_bin:
         opts["ffmpeg_location"] = os.path.dirname(ffmpeg_bin)
 
-    # Always merge video+audio into mp4 (requires FFmpeg)
+    # Always merge video+audio into mp4 (requires FFmpeg) with faststart moov atom header
     if not is_audio_only:
         opts["merge_output_format"] = "mp4"
+        opts["postprocessor_args"] = {
+            "ffmpeg": ["-movflags", "+faststart", "-c:v", "libx264", "-c:a", "aac"]
+        }
         opts["postprocessors"] = [
             {
                 "key": "FFmpegVideoConvertor",

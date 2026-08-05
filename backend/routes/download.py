@@ -117,6 +117,7 @@ async def proxy_download(
     headers = {
         "Content-Disposition": f'attachment; filename="{filename}"',
         "Content-Type": media_type,
+        "Accept-Ranges": "bytes",
         "X-Accel-Buffering": "no",
         "Cache-Control": "no-cache",
     }
