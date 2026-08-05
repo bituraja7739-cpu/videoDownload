@@ -117,13 +117,11 @@ _UA = (
 def normalize_url(url: str) -> str:
     """
     Normalize platform URLs for optimal extraction.
-    Converts Facebook share links (facebook.com/share/...) to m.facebook.com
-    which bypasses Facebook login wall blocks.
+    Converts Facebook URLs to m.facebook.com for mobile HTML scraping.
     """
     url = url.strip()
-    if "facebook.com" in url.lower() and "m.facebook.com" not in url.lower():
-        if "/share/" in url.lower() or "fb.watch" in url.lower():
-            url = re.sub(r"https?://(www\.|web\.)?facebook\.com", "https://m.facebook.com", url, flags=re.IGNORECASE)
+    if ("facebook.com" in url.lower() or "fb.watch" in url.lower()) and "m.facebook.com" not in url.lower():
+        url = re.sub(r"https?://(www\.|web\.|mbasic\.)?facebook\.com", "https://m.facebook.com", url, flags=re.IGNORECASE)
     return url
 
 
@@ -376,13 +374,101 @@ def build_ydl_opts(
 
 
 # ---------------------------------------------------------------------------
+# Direct HTML Fallback Extractor for Facebook
+# ---------------------------------------------------------------------------
+
+def extract_facebook_direct_html(url: str) -> dict:
+    """
+    Direct HTML fallback extractor for Facebook Videos & Reels.
+    Parses mobile HTML page source to extract HD/SD playable URLs when yt-dlp fails.
+    """
+    import requests
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    clean_url = url.strip()
+    m_url = re.sub(r"https?://(www\.|web\.|mbasic\.)?facebook\.com", "https://m.facebook.com", clean_url, flags=re.IGNORECASE)
+
+    try:
+        resp = requests.get(m_url, headers=headers, timeout=15)
+        html = resp.text
+    except Exception as exc:
+        raise ValueError(f"Could not connect to Facebook server: {exc}")
+
+    patterns = [
+        r'"playable_url_quality_hd"\s*:\s*"(https?:[^\"]+)"',
+        r'"playable_url"\s*:\s*"(https?:[^\"]+)"',
+        r'"hd_src"\s*:\s*"(https?:[^\"]+)"',
+        r'"sd_src"\s*:\s*"(https?:[^\"]+)"',
+        r'"browser_native_hd_url"\s*:\s*"(https?:[^\"]+)"',
+        r'"browser_native_sd_url"\s*:\s*"(https?:[^\"]+)"',
+        r'videoUrl\s*:\s*"(https?:[^\"]+)"',
+        r'src\s*:\s*"(https?:[^\"]+\.mp4[^\"]*)"',
+    ]
+
+    urls_found = []
+    for pat in patterns:
+        matches = re.findall(pat, html)
+        for m in matches:
+            decoded = m.replace("\\/", "/").replace("\\u0025", "%").replace("&amp;", "&")
+            if decoded.startswith("http") and decoded not in urls_found:
+                urls_found.append(decoded)
+
+    title_match = (
+        re.search(r'<meta property="og:title" content="(.*?)"', html) or
+        re.search(r'<title>(.*?)</title>', html) or
+        re.search(r'"title"\s*:\s*"(.*?)"', html)
+    )
+    thumb_match = (
+        re.search(r'<meta property="og:image" content="(.*?)"', html) or
+        re.search(r'"preferred_thumbnail"\s*:\s*{\s*"image"\s*:\s*{\s*"uri"\s*:\s*"(https?:[^\"]+)"', html)
+    )
+
+    raw_title = title_match.group(1) if title_match else "Facebook Video"
+    title = re.sub(r'\s*\|\s*Facebook$', '', raw_title, flags=re.IGNORECASE).strip() or "Facebook Video"
+    thumbnail = thumb_match.group(1).replace("\\/", "/") if thumb_match else ""
+
+    if not urls_found:
+        raise ValueError("Could not extract Facebook video stream. The video may be private, restricted, or deleted.")
+
+    formats = []
+    if len(urls_found) >= 2:
+        formats.append({"format_id": "720p", "label": "720p HD", "ext": "mp4", "height": 720, "filesize": None, "url": urls_found[0], "vcodec": "h264", "acodec": "aac", "is_audio": False})
+        formats.append({"format_id": "360p", "label": "360p SD", "ext": "mp4", "height": 360, "filesize": None, "url": urls_found[1], "vcodec": "h264", "acodec": "aac", "is_audio": False})
+    else:
+        formats.append({"format_id": "best_auto", "label": "Best Available Quality", "ext": "mp4", "height": 720, "filesize": None, "url": urls_found[0], "vcodec": "h264", "acodec": "aac", "is_audio": False})
+
+    # Add MP3 audio format option
+    formats.append({"format_id": "audio_best", "label": "Audio MP3 (Best Quality)", "ext": "mp3", "height": None, "filesize": None, "url": urls_found[0], "vcodec": "none", "acodec": "mp3", "is_audio": True})
+
+    content_type = "reel" if "/reel/" in url.lower() else ("story" if "/stories/" in url.lower() else "video")
+
+    return {
+        "title": title,
+        "thumbnail": thumbnail,
+        "duration": 0,
+        "platform": "facebook",
+        "content_type": content_type,
+        "webpage_url": url,
+        "uploader": "Facebook Video",
+        "view_count": None,
+        "formats": formats,
+        "url": formats[0]["url"]
+    }
+
+
+# ---------------------------------------------------------------------------
 # Metadata / Info Extraction
 # ---------------------------------------------------------------------------
 
 def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
     """
     Synchronously extract video metadata with yt-dlp.
-    Simple single-pass extraction.
+    Simple single-pass extraction. Fallbacks to direct HTML parser for Facebook.
     """
     url = normalize_url(url)
 
@@ -401,10 +487,20 @@ def fetch_info_sync(url: str, cookies_file: Optional[str] = None) -> dict:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception as exc:
+        if "facebook" in url.lower() or "fb.watch" in url.lower():
+            try:
+                return extract_facebook_direct_html(url)
+            except Exception:
+                pass
         err = classify_error(exc)
         raise ValueError(err["message"]) from exc
 
     if not info:
+        if "facebook" in url.lower() or "fb.watch" in url.lower():
+            try:
+                return extract_facebook_direct_html(url)
+            except Exception:
+                pass
         raise ValueError("Could not extract video information from this URL.")
 
     # Build available video format list (deduplicated by height)
@@ -600,10 +696,22 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception:
-        raise ValueError("Could not extract video. The video may be unavailable or restricted.")
+        if "facebook" in url.lower() or "fb.watch" in url.lower():
+            try:
+                info = extract_facebook_direct_html(url)
+            except Exception:
+                raise ValueError("Could not extract Facebook video. The video may be private, restricted, or deleted.")
+        else:
+            raise ValueError("Could not extract video. The video may be unavailable or restricted.")
 
     if not info:
-        raise ValueError("Could not extract video. The video may be unavailable or restricted.")
+        if "facebook" in url.lower() or "fb.watch" in url.lower():
+            try:
+                info = extract_facebook_direct_html(url)
+            except Exception:
+                raise ValueError("Could not extract Facebook video. The video may be private, restricted, or deleted.")
+        else:
+            raise ValueError("Could not extract video. The video may be unavailable or restricted.")
 
     title     = info.get("title", "video")
     thumbnail = info.get("thumbnail", "")
