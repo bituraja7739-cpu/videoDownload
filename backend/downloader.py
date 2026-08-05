@@ -806,19 +806,22 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
     for fmt in formats_list:
         vcodec = (fmt.get("vcodec") or "").lower()
         acodec = (fmt.get("acodec") or "").lower()
-        fid    = str(fmt.get("format_id", "")).lower()
         h      = fmt.get("height") or 0
         direct = fmt.get("url", "")
         if not direct.startswith("http"):
             continue
 
-        is_pure_video_only = (acodec == "none" and vcodec not in ("none", "")) and ("dash" in fid or "video" in fid)
-        is_pure_audio_only = (vcodec in ("none", "") and acodec not in ("none", "")) or ("audio" in fid and vcodec in ("none", ""))
+        has_video = vcodec not in ("none", "")
+        has_audio = acodec not in ("none", "")
 
-        # 1. Muxed format (has audio embedded or is standard Instagram/FB video stream)
-        if not is_pure_video_only and not is_pure_audio_only:
+        is_pure_video_only = has_video and not has_audio
+        is_pure_audio_only = has_audio and not has_video
+        is_combined        = has_video and has_audio
+
+        # 1. Muxed format (strictly has BOTH video and audio embedded)
+        if is_combined:
             is_av1 = "av01" in vcodec or "av1" in vcodec or "vp09" in vcodec or "vp9" in vcodec
-            # Score: prefer H.264 (avc1) over AV1/VP9 to ensure Windows Media Player & iOS compatibility
+            # Score: prefer H.264 (avc1) over AV1/VP9 to ensure Windows Media Player & iOS/Android compatibility
             score = (h if not is_av1 else h - 500)
 
             best_vcodec = (best_muxed.get("vcodec") or "").lower() if best_muxed else ""
@@ -829,64 +832,57 @@ def extract_direct_links(url: str, format_id: str = "best_auto") -> dict:
                 best_mux_h = h
                 best_muxed = fmt
 
-        # 2. Pure DASH video stream (if DASH separate streams used)
+        # 2. Pure DASH video stream (separate video track without audio)
         if is_pure_video_only and h <= max_h and h >= best_v_h:
             best_v_h   = h
             best_video = fmt
 
-        # 3. Pure DASH audio stream
+        # 3. Pure DASH audio stream (separate audio track without video)
         if is_pure_audio_only:
             abr = fmt.get("abr") or 0
             if abr >= best_abr:
                 best_abr   = abr
                 best_audio = fmt
 
-    # Case 1: Direct CDN stream (Instagram/Facebook native combined video+audio) -> MAXIMUM SPEED & FULL DURATION
+    # Case 1: Combined H.264 video+audio direct stream -> MAXIMUM SPEED, 100% AUDIO & VIDEO PLAYBACK
     if best_muxed:
-        return {
-            "title":       title,
-            "thumbnail":   thumbnail,
-            "duration":    duration,
-            "platform":    platform,
-            "ext":         best_muxed.get("ext", "mp4"),
-            "needs_merge": False,
-            "video_url":   best_muxed["url"],
-            "audio_url":   None,
-            "filesize":    best_muxed.get("filesize") or best_muxed.get("filesize_approx"),
-        }
+        bm_vcodec = (best_muxed.get("vcodec") or "").lower()
+        bm_is_av1 = "av01" in bm_vcodec or "av1" in bm_vcodec or "vp09" in bm_vcodec or "vp9" in bm_vcodec
+        
+        # If stream is H.264 with audio embedded -> Direct CDN Download
+        if not bm_is_av1:
+            return {
+                "title":       title,
+                "thumbnail":   thumbnail,
+                "duration":    duration,
+                "platform":    platform,
+                "ext":         best_muxed.get("ext", "mp4"),
+                "needs_merge": False,
+                "video_url":   best_muxed["url"],
+                "audio_url":   None,
+                "filesize":    best_muxed.get("filesize") or best_muxed.get("filesize_approx"),
+            }
 
-    # Case 2: Top-level single media URL (e.g. Instagram Reels direct CDN URL) -> MAXIMUM SPEED & FULL DURATION
-    if info.get("url") and info["url"].startswith("http"):
-        return {
-            "title":       title,
-            "thumbnail":   thumbnail,
-            "duration":    duration,
-            "platform":    platform,
-            "ext":         info.get("ext", "mp4"),
-            "needs_merge": False,
-            "video_url":   info["url"],
-            "audio_url":   None,
-            "filesize":    info.get("filesize") or info.get("filesize_approx"),
-        }
+    # Case 2: AV1 or separate video/audio stream -> Needs FFmpeg merge/recode to H.264 + AAC + faststart
+    v_url = (best_muxed["url"] if best_muxed else (best_video["url"] if best_video else info.get("url", "")))
+    a_url = (best_audio["url"] if best_audio else None)
+    v_size = (best_muxed.get("filesize") if best_muxed else (best_video.get("filesize") if best_video else 0)) or 0
+    a_size = (best_audio.get("filesize") if best_audio else 0) or 0
 
-    # Case 3: Separate DASH video + audio streams -> Needs FFmpeg merge
-    if best_video:
-        v_size = best_video.get("filesize") or best_video.get("filesize_approx") or 0
-        a_size = (best_audio.get("filesize") or best_audio.get("filesize_approx") or 0) if best_audio else 0
+    if not v_url:
+        raise ValueError("No downloadable video stream found for this URL and quality.")
 
-        return {
-            "title":       title,
-            "thumbnail":   thumbnail,
-            "duration":    duration,
-            "platform":    platform,
-            "ext":         best_video.get("ext", "mp4"),
-            "needs_merge": best_audio is not None,
-            "video_url":   best_video["url"],
-            "audio_url":   best_audio["url"] if best_audio else None,
-            "filesize":    (v_size + a_size) or None,
-        }
-
-    raise ValueError("No downloadable video stream found for this URL and quality.")
+    return {
+        "title":       title,
+        "thumbnail":   thumbnail,
+        "duration":    duration,
+        "platform":    platform,
+        "ext":         "mp4",
+        "needs_merge": True,
+        "video_url":   v_url,
+        "audio_url":   a_url,
+        "filesize":    (v_size + a_size) or None,
+    }
 
 
 # ---------------------------------------------------------------------------
